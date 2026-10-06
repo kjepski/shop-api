@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class TokenExpirationTest extends TestCase
@@ -38,6 +39,14 @@ class TokenExpirationTest extends TestCase
         $this->assertCount(1, $events);
         $this->assertSame('0 0 * * *', $events->first()?->expression);
         $this->assertStringContainsString('--hours=24', (string) $events->first()?->command);
+        $this->assertTrue($events->first()?->onOneServer);
+    }
+
+    public function test_tokens_table_has_index_on_created_at_used_by_prune(): void
+    {
+        $indexedColumns = collect(Schema::getIndexes('personal_access_tokens'))->pluck('columns');
+
+        $this->assertContains(['created_at'], $indexedColumns);
     }
 
     public function test_prune_removes_only_tokens_expired_for_more_than_a_day(): void
