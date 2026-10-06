@@ -3,6 +3,7 @@
 namespace Tests\Feature\Categories;
 
 use App\Models\Category;
+use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -52,6 +53,20 @@ class CategoryDestroyTest extends TestCase
             ->assertJsonPath('message', 'A category with subcategories cannot be deleted.');
 
         $this->assertModelExists($category);
+    }
+
+    public function test_category_with_products_cannot_be_deleted(): void
+    {
+        Sanctum::actingAs(User::factory()->admin()->create());
+        $category = Category::factory()->create();
+        $product = Product::factory()->forCategory($category)->create();
+
+        $this->deleteJson("/api/categories/{$category->id}")
+            ->assertConflict()
+            ->assertJsonPath('message', 'A category with products cannot be deleted.');
+
+        $this->assertModelExists($category);
+        $this->assertModelExists($product);
     }
 
     public function test_regular_user_cannot_delete_category(): void
