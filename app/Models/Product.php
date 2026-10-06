@@ -57,4 +57,49 @@ class Product extends Model
             $query->where('is_active', true);
         }
     }
+
+    /**
+     * Case-insensitive fragment of the name or SKU; % and _ in the term match literally.
+     *
+     * @param  Builder<Product>  $query
+     */
+    public function scopeSearch(Builder $query, string $term): void
+    {
+        $pattern = '%'.addcslashes($term, '\\%_').'%';
+
+        $query->where(function (Builder $query) use ($pattern): void {
+            $query->where('name', 'like', $pattern)->orWhere('sku', 'like', $pattern);
+        });
+    }
+
+    /**
+     * Products of the category or of any of its subcategories, in a single query.
+     *
+     * @param  Builder<Product>  $query
+     */
+    public function scopeInCategory(Builder $query, int $categoryId): void
+    {
+        $query->whereIn(
+            'category_id',
+            Category::query()->select('id')->whereKey($categoryId)->orWhere('parent_id', $categoryId),
+        );
+    }
+
+    /**
+     * @param  Builder<Product>  $query
+     */
+    public function scopePriceBetween(Builder $query, ?int $min, ?int $max): void
+    {
+        $query
+            ->when($min !== null, fn (Builder $query) => $query->where('price', '>=', $min))
+            ->when($max !== null, fn (Builder $query) => $query->where('price', '<=', $max));
+    }
+
+    /**
+     * @param  Builder<Product>  $query
+     */
+    public function scopeInStock(Builder $query): void
+    {
+        $query->where('stock', '>', 0);
+    }
 }

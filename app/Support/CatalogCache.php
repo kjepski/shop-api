@@ -9,8 +9,9 @@ use Illuminate\Support\Facades\Cache;
  * Caches rendered catalog list pages. Payloads are plain arrays, because the cache
  * refuses to unserialize PHP objects (see cache.serializable_classes).
  *
- * Keys contain only the page (and audience), so any future query parameter that
- * changes the result (filters, sorting, per_page) must be added to the key.
+ * Keys contain only the page (and audience): only the unfiltered list is cached, because
+ * filter combinations are unbounded. Any parameter that changes the result (filters,
+ * sorting, per_page) must either bypass this cache or become part of the key.
  */
 class CatalogCache
 {
