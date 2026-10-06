@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\LikePattern;
 use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -65,11 +66,12 @@ class Product extends Model
      */
     public function scopeSearch(Builder $query, string $term): void
     {
-        // An explicit ESCAPE character, because the default differs per database (MySQL: \, SQLite: none).
-        $pattern = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $term).'%';
+        $pattern = LikePattern::contains($term);
 
         $query->where(function (Builder $query) use ($pattern): void {
-            $query->whereRaw("name LIKE ? ESCAPE '!'", [$pattern])->orWhereRaw("sku LIKE ? ESCAPE '!'", [$pattern]);
+            $query
+                ->whereRaw($query->qualifyColumn('name')." LIKE ? ESCAPE '!'", [$pattern])
+                ->orWhereRaw($query->qualifyColumn('sku')." LIKE ? ESCAPE '!'", [$pattern]);
         });
     }
 

@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Actions\Users\DeleteUser;
+use App\Actions\Users\ListUsers;
 use App\Actions\Users\UpdateUser;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Users\IndexUserRequest;
 use App\Http\Requests\Users\UpdateUserRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
@@ -14,13 +16,9 @@ use Illuminate\Support\Facades\Gate;
 
 class UserController extends Controller
 {
-    public function index(): AnonymousResourceCollection
+    public function index(IndexUserRequest $request, ListUsers $listUsers): AnonymousResourceCollection
     {
-        Gate::authorize('viewAny', User::class);
-
-        $users = User::query()->orderBy('name')->orderBy('id')->paginate(15);
-
-        return UserResource::collection($users);
+        return UserResource::collection($listUsers->handle($request->filters()));
     }
 
     public function show(User $user): UserResource

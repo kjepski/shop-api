@@ -242,6 +242,31 @@
                                 <h2 class="text-lg font-semibold">Użytkownicy</h2>
                             </div>
 
+                            {{-- User filters --}}
+                            <div class="mb-4 grid gap-3 rounded-lg bg-white p-4 shadow sm:grid-cols-4">
+                                <label class="block text-sm sm:col-span-2">
+                                    <span class="font-medium">Szukaj (nazwa lub e-mail)</span>
+                                    <input type="search" x-model="userFilters.search" @input.debounce.400ms="loadUsers(1)" placeholder="min. 2 znaki" maxlength="100"
+                                           class="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none">
+                                    <span x-show="userFilterError('search')" x-text="userFilterError('search')" class="mt-1 block text-xs text-red-600"></span>
+                                </label>
+
+                                <label class="block text-sm">
+                                    <span class="font-medium">Rola</span>
+                                    <select x-model="userFilters.role" @change="loadUsers(1)" class="mt-1 w-full rounded border border-gray-300 px-3 py-2">
+                                        <option value="">Wszystkie</option>
+                                        <option value="admin">Administratorzy</option>
+                                        <option value="user">Użytkownicy</option>
+                                    </select>
+                                    <span x-show="userFilterError('role')" x-text="userFilterError('role')" class="mt-1 block text-xs text-red-600"></span>
+                                </label>
+
+                                <div class="flex items-end text-sm">
+                                    <button type="button" @click="clearUserFilters()" :disabled="!hasUserFilters"
+                                            class="w-full rounded border border-gray-300 px-3 py-2 hover:bg-gray-50 disabled:opacity-40">Wyczyść</button>
+                                </div>
+                            </div>
+
                             <div class="overflow-x-auto rounded-lg bg-white shadow">
                                 <table class="min-w-full text-sm">
                                     <thead class="bg-gray-50 text-left text-gray-600">
@@ -276,7 +301,8 @@
                                             </tr>
                                         </template>
                                         <tr x-show="users.length === 0">
-                                            <td colspan="5" class="px-4 py-6 text-center text-gray-500">Brak użytkowników.</td>
+                                            <td colspan="5" class="px-4 py-6 text-center text-gray-500"
+                                                x-text="hasUserFilters ? 'Brak użytkowników pasujących do filtrów.' : 'Brak użytkowników.'"></td>
                                         </tr>
                                     </tbody>
                                 </table>

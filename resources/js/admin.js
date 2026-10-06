@@ -80,6 +80,8 @@ Alpine.data('adminPanel', () => ({
     users: [],
     usersMeta: null,
     usersLoading: false,
+    userFilters: { search: '', role: '' },
+    userFilterErrors: {},
     // Every category across all pages, for names, select options and the parent column.
     allCategories: [],
 
@@ -203,6 +205,13 @@ Alpine.data('adminPanel', () => ({
         this.tab = 'products';
         this.users = [];
         this.usersMeta = null;
+        this.userFilters = { search: '', role: '' };
+        this.userFilterErrors = {};
+        // Responses still in flight from the old session must not land in the page.
+        this.productsRequest++;
+        this.categoriesRequest++;
+        this.allCategoriesRequest++;
+        this.usersRequest++;
         writeToken(null);
         this.modal.open = false;
         this.showFlash('info', message);
@@ -360,11 +369,40 @@ Alpine.data('adminPanel', () => ({
         }
     },
 
+    usersQuery(page) {
+        const params = new URLSearchParams({ page });
+        const search = this.userFilters.search.trim();
+
+        // The API needs at least 2 characters; a single one just means "still typing".
+        if (search.length >= 2) {
+            params.set('search', search);
+        }
+        if (this.userFilters.role !== '') {
+            params.set('role', this.userFilters.role);
+        }
+
+        return params.toString();
+    },
+
+    get hasUserFilters() {
+        return this.userFilters.search.trim().length >= 2 || this.userFilters.role !== '';
+    },
+
+    clearUserFilters() {
+        this.userFilters = { search: '', role: '' };
+        this.loadUsers(1);
+    },
+
+    userFilterError(field) {
+        return this.userFilterErrors[field]?.[0] ?? null;
+    },
+
     async loadUsers(page) {
         const request = ++this.usersRequest;
         this.usersLoading = true;
+        this.userFilterErrors = {};
         try {
-            const data = await this.api('GET', `/users?page=${page}`);
+            const data = await this.api('GET', `/users?${this.usersQuery(page)}`);
             if (request !== this.usersRequest) {
                 return;
             }
@@ -376,6 +414,13 @@ Alpine.data('adminPanel', () => ({
             this.usersMeta = data.meta;
         } catch (error) {
             if (request !== this.usersRequest) {
+                return;
+            }
+            if (error.status === 422) {
+                // Rows from an earlier query must not sit under an invalid filter as if they matched it.
+                this.userFilterErrors = error.errors;
+                this.users = [];
+                this.usersMeta = null;
                 return;
             }
             this.showError(error);
