@@ -18,9 +18,20 @@ class MeTest extends TestCase
         $this->withToken($user->createToken('api')->plainTextToken)
             ->getJson('/api/me')
             ->assertOk()
-            ->assertExactJsonStructure(['data' => ['id', 'name', 'email', 'created_at']])
+            ->assertExactJsonStructure(['data' => ['id', 'name', 'email', 'is_admin', 'created_at']])
             ->assertJsonPath('data.id', $user->id)
-            ->assertJsonPath('data.email', $user->email);
+            ->assertJsonPath('data.email', $user->email)
+            ->assertJsonPath('data.is_admin', false);
+    }
+
+    public function test_me_tells_admin_apart(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $this->withToken($admin->createToken('api')->plainTextToken)
+            ->getJson('/api/me')
+            ->assertOk()
+            ->assertJsonPath('data.is_admin', true);
     }
 
     public function test_me_requires_token(): void
