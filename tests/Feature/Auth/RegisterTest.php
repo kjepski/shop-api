@@ -29,7 +29,7 @@ class RegisterTest extends TestCase
         $response = $this->postJson('/api/register', $this->validPayload());
 
         $response->assertCreated()
-            ->assertJsonStructure(['data' => ['id', 'name', 'email', 'created_at'], 'token'])
+            ->assertJsonStructure(['data' => ['id', 'name', 'email', 'created_at'], 'token', 'expires_at'])
             ->assertJsonPath('data.email', 'jan@example.com')
             ->assertJsonMissingPath('data.password');
 

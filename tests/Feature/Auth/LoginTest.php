@@ -20,7 +20,7 @@ class LoginTest extends TestCase
         ]);
 
         $response->assertOk()
-            ->assertJsonStructure(['data' => ['id', 'name', 'email', 'created_at'], 'token'])
+            ->assertJsonStructure(['data' => ['id', 'name', 'email', 'created_at'], 'token', 'expires_at'])
             ->assertJsonPath('data.id', $user->id);
 
         $this->assertDatabaseHas('personal_access_tokens', [

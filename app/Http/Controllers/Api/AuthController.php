@@ -20,22 +20,22 @@ class AuthController extends Controller
         /** @var array{name: string, email: string, password: string} $data */
         $data = $request->validated();
 
-        ['user' => $user, 'token' => $token] = $registerUser->handle($data);
+        ['user' => $user, 'token' => $token, 'expires_at' => $expiresAt] = $registerUser->handle($data);
 
         return UserResource::make($user)
-            ->additional(['token' => $token])
+            ->additional(['token' => $token, 'expires_at' => $expiresAt])
             ->response()
             ->setStatusCode(Response::HTTP_CREATED);
     }
 
     public function login(LoginRequest $request, LoginUser $loginUser): UserResource
     {
-        ['user' => $user, 'token' => $token] = $loginUser->handle(
+        ['user' => $user, 'token' => $token, 'expires_at' => $expiresAt] = $loginUser->handle(
             $request->string('email')->toString(),
             $request->string('password')->toString(),
         );
 
-        return UserResource::make($user)->additional(['token' => $token]);
+        return UserResource::make($user)->additional(['token' => $token, 'expires_at' => $expiresAt]);
     }
 
     public function logout(Request $request): Response
