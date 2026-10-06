@@ -7,10 +7,30 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Tests run on the same database engine as the app (Sail: mysql:8.4), not SQLite,
+    # so engine-specific behaviour (e.g. LIKE escaping) is caught here.
+    env:
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: testing
+      DB_USERNAME: root
+      DB_PASSWORD: password
     services:
       redis:
         image: redis:7
         ports: ['6379:6379']
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: testing
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -ppassword"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
