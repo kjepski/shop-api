@@ -18,7 +18,9 @@ class UserController extends Controller
 {
     public function index(IndexUserRequest $request, ListUsers $listUsers): AnonymousResourceCollection
     {
-        return UserResource::collection($listUsers->handle($request->filters()));
+        $users = $listUsers->handle($request->filters(), $request->sort())->appends($request->linkParameters());
+
+        return UserResource::collection($users);
     }
 
     public function show(User $user): UserResource

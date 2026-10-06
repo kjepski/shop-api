@@ -122,9 +122,10 @@ class SearchRateLimitTest extends TestCase
 
     public function test_filter_lists_match_validation_rules(): void
     {
-        // A filter missing from FILTERS would silently skip the rate limit.
-        $this->assertEqualsCanonicalizing(array_keys((new IndexProductRequest)->rules()), IndexProductRequest::FILTERS);
-        $this->assertEqualsCanonicalizing(array_keys((new IndexUserRequest)->rules()), IndexUserRequest::FILTERS);
+        // A filter missing from FILTERS would silently skip the rate limit; sort is the only
+        // non-filter parameter, because it has a fixed set of values and keeps lists cacheable.
+        $this->assertEqualsCanonicalizing(array_keys((new IndexProductRequest)->rules()), [...IndexProductRequest::FILTERS, 'sort']);
+        $this->assertEqualsCanonicalizing(array_keys((new IndexUserRequest)->rules()), [...IndexUserRequest::FILTERS, 'sort']);
     }
 
     public function test_unauthenticated_requests_get_401_not_429(): void

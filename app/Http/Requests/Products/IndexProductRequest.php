@@ -13,7 +13,7 @@ class IndexProductRequest extends FormRequest
     use DetectsFilterInput;
 
     /**
-     * Query parameters that narrow the list; must match the keys of rules().
+     * Query parameters that narrow the list; together with sort, must match the keys of rules().
      */
     public const FILTERS = ['search', 'category_id', 'min_price', 'max_price', 'in_stock'];
 
@@ -35,6 +35,7 @@ class IndexProductRequest extends FormRequest
             // gte fails when the other bound is missing or invalid, so it only applies when min_price is a number.
             'max_price' => ['nullable', 'integer', 'min:0', 'max:4294967295', Rule::when(is_numeric($this->input('min_price')), 'gte:min_price')],
             'in_stock' => ['nullable', 'boolean'],
+            'sort' => ['nullable', 'string', Rule::in(Product::sortValues())],
         ];
     }
 
@@ -46,6 +47,27 @@ class IndexProductRequest extends FormRequest
         return [
             'max_price.gte' => 'The max price must be greater than or equal to the min price.',
         ];
+    }
+
+    /**
+     * The requested sort, or the default one; never a filter, so it does not count as a search.
+     */
+    public function sort(): string
+    {
+        return $this->filled('sort') ? $this->string('sort')->toString() : Product::DEFAULT_SORT;
+    }
+
+    /**
+     * Query parameters for pagination links: applied filters and a non-default sort only,
+     * so unknown parameters never end up in (cached) links.
+     *
+     * @return array<string, string|int|true>
+     */
+    public function linkParameters(): array
+    {
+        $sort = $this->sort();
+
+        return $sort === Product::DEFAULT_SORT ? $this->filters() : [...$this->filters(), 'sort' => $sort];
     }
 
     /**

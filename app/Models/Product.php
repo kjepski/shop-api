@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Sortable;
 use App\Support\LikePattern;
 use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -14,7 +15,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Product extends Model
 {
     /** @use HasFactory<ProductFactory> */
-    use HasFactory;
+    use HasFactory, Sortable;
+
+    public const DEFAULT_SORT = 'name';
+
+    public const SORTABLE = ['name', 'price', 'created_at'];
 
     /**
      * Mirrors the database defaults, so a freshly created product has the attributes without a reload.

@@ -88,6 +88,18 @@
                         <section x-show="tab === 'products'">
                             <div class="mb-4 flex items-center justify-between">
                                 <h2 class="text-lg font-semibold">Produkty</h2>
+                                <label class="ml-auto flex items-center gap-2 text-sm" :class="isAdmin && 'mr-3'">
+                                    <span class="text-gray-600">Sortuj</span>
+                                    <select x-model="productSort" @change="loadProducts(1)" class="rounded border border-gray-300 px-2 py-1.5">
+                                        <option value="name">Nazwa A–Z</option>
+                                        <option value="-name">Nazwa Z–A</option>
+                                        <option value="price">Cena rosnąco</option>
+                                        <option value="-price">Cena malejąco</option>
+                                        <option value="-created_at">Najnowsze</option>
+                                        <option value="created_at">Najstarsze</option>
+                                    </select>
+                                    <span x-show="filterError('sort')" x-text="filterError('sort')" class="text-xs text-red-600"></span>
+                                </label>
                                 <button x-show="isAdmin" @click="openProductForm()"
                                         class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Dodaj produkt</button>
                             </div>
@@ -240,6 +252,18 @@
                         <section x-show="tab === 'users' && isAdmin">
                             <div class="mb-4 flex items-center justify-between">
                                 <h2 class="text-lg font-semibold">Użytkownicy</h2>
+                                <label class="flex items-center gap-2 text-sm">
+                                    <span class="text-gray-600">Sortuj</span>
+                                    <select x-model="userSort" @change="loadUsers(1)" class="rounded border border-gray-300 px-2 py-1.5">
+                                        <option value="name">Nazwa A–Z</option>
+                                        <option value="-name">Nazwa Z–A</option>
+                                        <option value="email">E-mail A–Z</option>
+                                        <option value="-email">E-mail Z–A</option>
+                                        <option value="-created_at">Najnowsi</option>
+                                        <option value="created_at">Najstarsi</option>
+                                    </select>
+                                    <span x-show="userFilterError('sort')" x-text="userFilterError('sort')" class="text-xs text-red-600"></span>
+                                </label>
                             </div>
 
                             {{-- User filters --}}

@@ -15,7 +15,7 @@ class IndexUserRequest extends FormRequest
     use DetectsFilterInput;
 
     /**
-     * Query parameters that narrow the list; must match the keys of rules().
+     * Query parameters that narrow the list; together with sort, must match the keys of rules().
      */
     public const FILTERS = ['search', 'role'];
 
@@ -32,7 +32,29 @@ class IndexUserRequest extends FormRequest
         return [
             'search' => ['nullable', 'string', 'min:2', 'max:100'],
             'role' => ['nullable', 'string', Rule::in(['admin', 'user'])],
+            'sort' => ['nullable', 'string', Rule::in(User::sortValues())],
         ];
+    }
+
+    /**
+     * The requested sort, or the default one; never a filter, so it does not count as a search.
+     */
+    public function sort(): string
+    {
+        return $this->filled('sort') ? $this->string('sort')->toString() : User::DEFAULT_SORT;
+    }
+
+    /**
+     * Query parameters for pagination links: applied filters and a non-default sort only,
+     * so unknown parameters never end up in (cached) links.
+     *
+     * @return array<string, string|int|true>
+     */
+    public function linkParameters(): array
+    {
+        $sort = $this->sort();
+
+        return $sort === User::DEFAULT_SORT ? $this->filters() : [...$this->filters(), 'sort' => $sort];
     }
 
     /**

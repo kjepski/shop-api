@@ -26,18 +26,19 @@ class ProductController extends Controller
         /** @var User $user */
         $user = $request->user();
         $filters = $request->filters();
+        $sort = $request->sort();
 
         $render = fn (): array => ProductResource::collection(
-            $listProducts->handle($user, $filters)
+            $listProducts->handle($user, $filters, $sort)
                 // Links get cached for everyone, so they must not come from the request's Host header.
                 ->withPath(config()->string('app.url').'/'.$request->path())
-                // Only applied filters, so unknown query parameters never end up in (cached) links.
-                ->appends($filters)
+                ->appends($request->linkParameters())
         )->toResponse($request)->getData(true);
 
         // Filtered lists skip the cache: search terms and price ranges have unbounded combinations.
+        // Sorts are a short fixed list, so each one gets its own cache entries.
         $payload = $filters === []
-            ? $catalogCache->rememberProductsPage($user->is_admin, Paginator::resolveCurrentPage(), $render)
+            ? $catalogCache->rememberProductsPage($user->is_admin, $sort, Paginator::resolveCurrentPage(), $render)
             : $render();
 
         return response()->json($payload);
