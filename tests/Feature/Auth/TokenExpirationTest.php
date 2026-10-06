@@ -30,12 +30,30 @@ class TokenExpirationTest extends TestCase
         $this->withToken($token)->getJson('/api/me')->assertUnauthorized();
     }
 
-    public function test_expired_tokens_are_pruned_daily(): void
+    public function test_prune_command_is_scheduled_daily_with_one_day_grace_period(): void
     {
         $events = collect($this->app->make(Schedule::class)->events())
             ->filter(fn (Event $event) => str_contains((string) $event->command, 'sanctum:prune-expired'));
 
         $this->assertCount(1, $events);
         $this->assertSame('0 0 * * *', $events->first()?->expression);
+        $this->assertStringContainsString('--hours=24', (string) $events->first()?->command);
+    }
+
+    public function test_prune_removes_only_tokens_expired_for_more_than_a_day(): void
+    {
+        $user = User::factory()->create();
+        $oldToken = $user->createToken('old')->accessToken;
+
+        $this->travel(2)->minutes();
+        $recentlyExpiredToken = $user->createToken('recently-expired')->accessToken;
+
+        // 7 days of validity + 24 hours of grace period, counted from the old token's creation.
+        $this->travel((7 * 24 + 24) * 60 - 1)->minutes();
+
+        $this->artisan('sanctum:prune-expired --hours=24')->assertSuccessful();
+
+        $this->assertDatabaseMissing('personal_access_tokens', ['id' => $oldToken->id]);
+        $this->assertDatabaseHas('personal_access_tokens', ['id' => $recentlyExpiredToken->id]);
     }
 }
