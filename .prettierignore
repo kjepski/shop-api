@@ -1,0 +1,8 @@
+vendor
+public
+storage
+bootstrap/cache
+package-lock.json
+# The Alpine panel is only maintained until the Vue panel replaces it.
+resources/js/admin.js
+resources/views

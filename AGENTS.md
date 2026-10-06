@@ -39,18 +39,40 @@ Panel to SPA, które rozmawia wyłącznie z `/api/*`; uprawnienia egzekwuje API,
 - Stack: Vue 3 (`<script setup lang="ts">`, Composition API), TypeScript (`strict: true`, sprawdzanie przez `vue-tsc`), Vue Router, Pinia, Tailwind, budowanie przez Vite.
 - Formatowanie: Prettier odpowiada za styl, ESLint (`eslint-plugin-vue`, `typescript-eslint`) za poprawność; reguły stylistyczne ESLinta wyłączone przez `@vue/eslint-config-prettier`, żeby narzędzia się nie przepychały.
 - Migracja: do przełączenia `/admin` na Vue stary panel w Alpine (`resources/js/admin.js`, `resources/views/admin.blade.php`) tylko utrzymujemy, nie dodajemy do niego funkcji. Nowy panel rośnie obok pod `/admin-next`.
-- Komendy (od wprowadzenia toolingu Vue): `./vendor/bin/sail npm run lint`, `run type-check`, `run test`, `run build`.
+- Komendy: `./vendor/bin/sail npm run lint` (ESLint, bez ostrzeżeń), `run type-check` (`vue-tsc`), `run test` (Vitest), `run build`, `run format` / `run format:check` (Prettier dla `resources/js/admin` i plików konfiguracyjnych).
+- Laravel serwuje tę samą powłokę (`resources/views/admin-next.blade.php`) dla każdej ścieżki `/admin-next/*`; o tym, co pokazać, decyduje Vue Router (`createWebHistory('/admin-next/')`).
+
+Każdy ekran to osobna trasa z własnym URL – działa po odświeżeniu i z bezpośredniego linku, przycisk „wstecz” działa:
+
+| Ekran | Ścieżka | Komponent strony |
+|---|---|---|
+| Lista (filtry, sort, strona w query) | `/<zasób>` | `<Zasób>ListPage.vue` |
+| Szczegóły | `/<zasób>/:id(\\d+)` | `<Zasób>ShowPage.vue` |
+| Dodawanie | `/<zasób>/new` | `<Zasób>FormPage.vue` |
+| Edycja | `/<zasób>/:id(\\d+)/edit` | `<Zasób>FormPage.vue` |
+
+- Szczegółów, dodawania i edycji nie robimy w modalach. Modal (`ConfirmDialog`) służy wyłącznie do potwierdzeń, np. usunięcia.
+- `<Zasób>FormPage.vue` pobiera dane (edycja), zapisuje i wraca na listę lub szczegóły; pola formularza są w `<Zasób>Form.vue`, wspólnym dla dodawania i edycji.
+- Formularz z niezapisanymi zmianami pyta przed opuszczeniem trasy (`onBeforeRouteLeave`).
+- 404 z API na stronie szczegółów lub edycji pokazuje stronę „Nie znaleziono”, nie pusty formularz.
+- `:id` tylko z cyframi (`(\\d+)`), żeby `/products/abc` od razu dawało „Nie znaleziono” zamiast żądania do API.
+- Każda trasa ma `meta.title` (wymusza to typ `RouteMeta`) – router ustawia z niego tytuł karty.
+- Każda strona renderuje `<main>` z jednym `<h1 tabindex="-1">`; router przenosi na niego focus po zmianie ekranu (nie przy pierwszym wejściu) i przewija na górę, a „wstecz” przywraca pozycję.
+- „Wróć” ze szczegółów lub formularza: jeśli poprzedni wpis historii (`history.state.back`) to lista tego zasobu, `router.back()` – lista wraca z tymi samymi filtrami, sortem i stroną z query; w przeciwnym razie (wejście z linku) przejście na listę bez filtrów. Logika w jednym composable, nie w każdej stronie.
+- Router po wdrożeniu nowej wersji sam przeładowuje stronę, gdy brakuje starego pliku ekranu (leniwe ładowanie tras).
 
 Struktura `resources/js/admin/`:
-- `main.ts` (start aplikacji), `App.vue` (layout i `<RouterView>`), `router.ts` (trasy i strażnicy).
+- `main.ts` (start aplikacji), `App.vue` (layout i `<RouterView>`), `router.ts` (trasy i strażnicy), `env.d.ts`.
+- Testy obok testowanego pliku: `<Plik>.test.ts`, z `enableAutoUnmount(afterEach)`. Import z aliasem `@admin/...`.
+- ESLint sprawdza z informacją o typach (`recommendedTypeChecked`): niezaawaitowany promise to błąd – `await` albo jawne `void`.
 - `api/` – jedyne miejsce z `fetch`: klient (ciasteczka i CSRF, 401, `Retry-After`) i moduł na zasób (`products.ts` itd.).
 - `types/` – typy odpowiedzi API (odpowiedniki API Resources), `Paginated<T>`, błędy walidacji.
 - `stores/` – Pinia tylko dla stanu globalnego (sesja, komunikaty). Stan list żyje w composables.
 - `composables/` – logika wielokrotnego użytku: listy z paginacją i sekwencjonowaniem żądań, filtry/sort/strona zsynchronizowane z URL, formularze.
 - `utils/` – czyste funkcje (pieniądze, query string), testowane jednostkowo.
-- `components/ui/` – generyczne komponenty bez wiedzy o domenie (przycisk, pole, modal, tabela, paginacja).
+- `components/ui/` – generyczne komponenty bez wiedzy o domenie (przycisk, pole, tabela, paginacja, dialog potwierdzenia).
 - `components/layout/` – nagłówek, nawigacja.
-- `features/<zasób>/` – strona i komponenty jednego zasobu (`ProductsPage.vue`, `ProductTable.vue`, `ProductFormModal.vue`).
+- `features/<zasób>/` – strony i komponenty jednego zasobu (`ProductListPage.vue`, `ProductShowPage.vue`, `ProductFormPage.vue`, `ProductForm.vue`, `ProductTable.vue`, `ProductFilters.vue`).
 
 Zasady:
 - Komponent nie woła `fetch` ani modułów `api/` bezpośrednio; dane przez composable lub store.
@@ -60,7 +82,7 @@ Zasady:
 - Propsy tylko do odczytu, zmiany przez `emit` albo `defineModel` (dla `v-model`); typowane `defineProps`/`defineEmits`.
 - Komponent powyżej ok. 200 linii albo z więcej niż jedną odpowiedzialnością dziel na mniejsze.
 - Typy w `types/` muszą odpowiadać API Resources; zmiana Resource to zmiana typu w tym samym PR.
-- Dostępność: każde pole ma etykietę, modal łapie focus i zamyka się Escape, akcje działają z klawiatury.
+- Dostępność: każde pole ma etykietę, po zmianie trasy focus trafia na nagłówek strony, dialog potwierdzenia łapie focus i zamyka się Escape, akcje działają z klawiatury.
 
 ## Testy
 - Każdy endpoint ma testy Feature: sukces, walidacja, 401 i 403 (gdzie dotyczy), paginacja (dla list).
