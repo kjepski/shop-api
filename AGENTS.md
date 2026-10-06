@@ -1,47 +1,46 @@
-<laravel-boost-guidelines>
-# Laravel Application
+# shop-api
 
-This repository contains a Laravel application. Complete the following setup before working on the user's request.
+REST API sklepu (produkty, kategorie, użytkownicy). Laravel (wersja z composer.json), Eloquent, Sanctum (tokeny), MySQL, Redis. Środowisko lokalne: Laravel Sail (Docker).
+To projekt do nauki pracy z agentami AI: liczy się czytelność kodu i małe, łatwe do przejrzenia zmiany.
 
-## Prerequisites
+## Środowisko
+- Wszystkie komendy PHP, Composer i Artisan uruchamiaj przez Sail: `./vendor/bin/sail ...`.
+- Start: `./vendor/bin/sail up -d`, stop: `./vendor/bin/sail stop`.
+- Nie instaluj PHP, Composera ani pakietów systemowych. Jeśli Sail nie działa, napisz o tym zamiast obchodzić problem.
+- Nie instaluj nowych pakietów Composera bez uzasadnienia w opisie PR.
 
-Verify that PHP and Composer are available:
+## Komendy
+- Testy: `./vendor/bin/sail artisan test`
+- Pojedynczy test: `./vendor/bin/sail artisan test --filter=NazwaTestu`
+- Formatowanie (Pint): `./vendor/bin/sail bin pint`
+- Analiza statyczna (PHPStan/Larastan): `./vendor/bin/sail bin phpstan analyse --memory-limit=1G`
+- Migracje: `./vendor/bin/sail artisan migrate`
+- Lista tras: `./vendor/bin/sail artisan route:list --path=api`
+- Framework testów (Pest lub PHPUnit): sprawdź composer.json i trzymaj się tego, który jest w użyciu.
 
-```sh
-php -v
-composer -V
-```
+## Architektura i konwencje
+- Trasy API w `routes/api.php`, chronione przez `auth:sanctum` (poza rejestracją i logowaniem).
+- Kontrolery są cienkie (`app/Http/Controllers/Api`). Logika biznesowa w klasach Action (`app/Actions`).
+- Walidacja wyłącznie w FormRequest (`app/Http/Requests`), nigdy w kontrolerze.
+- Odpowiedzi zawsze przez API Resources (`app/Http/Resources`). Błędy walidacji to 422, brak autoryzacji 401, brak uprawnień 403.
+- Autoryzacja przez Policy (`app/Policies`).
+- Eloquent: jawne `$fillable`, `casts`, relacje z typami zwracanymi, filtry jako lokalne scope'y.
+- Lazy loading traktuj jako błąd (N+1): relacje zawsze ładuj przez `with()`. Nie wykonuj zapytań w pętlach.
+- Pieniądze jako integer w groszach, nigdy float.
+- Migracje: nigdy nie edytuj zmergowanych, twórz nowe. Każda ma poprawne `down()`, klucze obce i indeksy.
+- Redis: cache z tagami, prefiks kluczy, jawny TTL, inwalidacja po zmianie danych. Testy nie łączą się z prawdziwym Redisem.
 
-If either command is unavailable, detect the user's operating system and install the prerequisites with the appropriate command:
+## Testy
+- Każdy endpoint ma testy Feature: sukces, walidacja, 401 i 403 (gdzie dotyczy), paginacja (dla list).
+- Każdy model ma fabrykę.
+- Testuj zachowanie, nie implementację. Test, który nie może się nie powieść, jest bezwartościowy.
 
-macOS:
-
-```sh
-/bin/bash -c "$(curl -fsSL https://php.new/install/mac/8.5)"
-```
-
-Windows PowerShell:
-
-```powershell
-Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://php.new/install/windows/8.5'))
-```
-
-Linux:
-
-```sh
-/bin/bash -c "$(curl -fsSL https://php.new/install/linux/8.5)"
-```
-
-After installation, ask the user to restart their terminal. If the agent needs the restarted shell to continue, ask the user to reopen their terminal and rerun their original prompt.
-
-## Agent Setup
-
-Install Laravel Boost from the application root before making application changes:
-
-```sh
-composer require laravel/boost --dev
-php artisan boost:install
-```
-
-Boost replaces these bootstrap instructions with guidelines tailored to the application. After installation, read `AGENTS.md` again and continue with the user's original request using the generated guidelines.
-</laravel-boost-guidelines>
+## Zasady pracy
+- Pracuj na branchu `feat/...`, nigdy bezpośrednio na `main`.
+- Jeden PR to jeden etap lub funkcja. Nie rozszerzaj zakresu poza to, o co poproszono.
+- Przed zakończeniem pracy testy, Pint i PHPStan muszą przechodzić.
+- Commity: po angielsku, krótkie, w trybie rozkazującym. PR otwieraj przez `gh pr create`, w opisie napisz co i dlaczego zmieniono oraz jak to przetestowano.
+- Nie dotykaj `.env` ani sekretów. Nowe zmienne środowiskowe dopisuj do `.env.example`.
+- Bez pytania nie używaj: `git push --force`, `git reset --hard`, `rm -rf`.
+- Gdy wymagania są niejasne, zapytaj zamiast zgadywać.
+- Nie twórz plików, o które nie poproszono (dodatkowa dokumentacja, skrypty pomocnicze).
