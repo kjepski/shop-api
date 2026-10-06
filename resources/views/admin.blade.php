@@ -90,6 +90,48 @@
                                         class="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Dodaj produkt</button>
                             </div>
 
+                            {{-- Filters --}}
+                            <div class="mb-4 grid gap-3 rounded-lg bg-white p-4 shadow sm:grid-cols-2 lg:grid-cols-6">
+                                <label class="block text-sm lg:col-span-2">
+                                    <span class="font-medium">Szukaj (nazwa lub SKU)</span>
+                                    <input type="search" x-model="filters.search" @input.debounce.400ms="applyFilters()" placeholder="min. 2 znaki"
+                                           class="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:outline-none">
+                                    <span x-show="filterError('search')" x-text="filterError('search')" class="mt-1 block text-xs text-red-600"></span>
+                                </label>
+
+                                <label class="block text-sm">
+                                    <span class="font-medium">Kategoria</span>
+                                    <select x-model="filters.category_id" @change="applyFilters()"
+                                            class="mt-1 w-full rounded border border-gray-300 px-3 py-2">
+                                        <option value="">Wszystkie</option>
+                                        <template x-for="category in allCategories" :key="category.id">
+                                            <option :value="String(category.id)" :selected="String(category.id) === filters.category_id"
+                                                    x-text="(category.parent_id === null ? '' : '— ') + category.name"></option>
+                                        </template>
+                                    </select>
+                                    <span x-show="filterError('category_id')" x-text="filterError('category_id')" class="mt-1 block text-xs text-red-600"></span>
+                                </label>
+
+                                @foreach (['min_price' => 'Cena od (zł)', 'max_price' => 'Cena do (zł)'] as $field => $label)
+                                    <label class="block text-sm">
+                                        <span class="font-medium">{{ $label }}</span>
+                                        <input type="text" inputmode="decimal" x-model="filters.{{ $field }}" @input.debounce.400ms="applyFilters()"
+                                               class="mt-1 w-full rounded border px-3 py-2 focus:outline-none"
+                                               :class="filterError('{{ $field }}') ? 'border-red-500' : 'border-gray-300 focus:border-indigo-500'">
+                                        <span x-show="filterError('{{ $field }}')" x-text="filterError('{{ $field }}')" class="mt-1 block text-xs text-red-600"></span>
+                                    </label>
+                                @endforeach
+
+                                <div class="flex flex-col justify-end gap-2 text-sm">
+                                    <label class="flex items-center gap-2">
+                                        <input type="checkbox" x-model="filters.in_stock" @change="applyFilters()" class="rounded border-gray-300">
+                                        <span>Tylko dostępne</span>
+                                    </label>
+                                    <button type="button" @click="clearFilters()" :disabled="!hasFilters"
+                                            class="rounded border border-gray-300 px-3 py-1.5 hover:bg-gray-50 disabled:opacity-40">Wyczyść</button>
+                                </div>
+                            </div>
+
                             <div class="overflow-x-auto rounded-lg bg-white shadow">
                                 <table class="min-w-full text-sm">
                                     <thead class="bg-gray-50 text-left text-gray-600">
@@ -126,7 +168,8 @@
                                             </tr>
                                         </template>
                                         <tr x-show="products.length === 0">
-                                            <td colspan="7" class="px-4 py-6 text-center text-gray-500">Brak produktów.</td>
+                                            <td colspan="7" class="px-4 py-6 text-center text-gray-500"
+                                                x-text="hasFilters ? 'Brak produktów pasujących do filtrów.' : 'Brak produktów.'"></td>
                                         </tr>
                                     </tbody>
                                 </table>

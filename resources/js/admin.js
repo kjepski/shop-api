@@ -69,6 +69,9 @@ Alpine.data('adminPanel', () => ({
 
     products: [],
     productsMeta: null,
+    // Prices are typed in złoty, like in the product form.
+    filters: { search: '', category_id: '', min_price: '', max_price: '', in_stock: false },
+    filterErrors: {},
     categories: [],
     categoriesMeta: null,
     // Every category across all pages, for names, select options and the parent column.
@@ -192,11 +195,76 @@ Alpine.data('adminPanel', () => ({
 
     // --- Lists ---------------------------------------------------------------
 
+    /** Query string for the product list, or null when a filter is invalid before even asking the API. */
+    productsQuery(page) {
+        const params = new URLSearchParams({ page });
+        const errors = {};
+        const search = this.filters.search.trim();
+
+        // The API needs at least 2 characters; a single one just means "still typing".
+        if (search.length >= 2) {
+            params.set('search', search);
+        }
+        if (this.filters.category_id !== '') {
+            params.set('category_id', this.filters.category_id);
+        }
+        for (const key of ['min_price', 'max_price']) {
+            if (String(this.filters[key]).trim() === '') {
+                continue;
+            }
+            const grosze = zlotyToGrosze(this.filters[key]);
+            if (grosze === null) {
+                errors[key] = ['Podaj kwotę w złotych, np. 49,99.'];
+            } else {
+                params.set(key, grosze);
+            }
+        }
+        if (this.filters.in_stock) {
+            params.set('in_stock', '1');
+        }
+
+        this.filterErrors = errors;
+
+        return Object.keys(errors).length > 0 ? null : params.toString();
+    },
+
+    applyFilters() {
+        this.loadProducts(1);
+    },
+
+    clearFilters() {
+        this.filters = { search: '', category_id: '', min_price: '', max_price: '', in_stock: false };
+        this.loadProducts(1);
+    },
+
+    /** Rows from an earlier query must not sit under an invalid filter as if they matched it. */
+    clearProducts() {
+        this.products = [];
+        this.productsMeta = null;
+    },
+
+    get hasFilters() {
+        const f = this.filters;
+        return f.search.trim().length >= 2 || f.category_id !== '' || f.min_price !== '' || f.max_price !== '' || f.in_stock;
+    },
+
+    filterError(field) {
+        return this.filterErrors[field]?.[0] ?? null;
+    },
+
     async loadProducts(page) {
         const request = ++this.productsRequest;
+        const query = this.productsQuery(page);
+        if (query === null) {
+            // The bump above already dropped any request in flight, so its finally won't reset these.
+            this.productsLoading = false;
+            this.clearProducts();
+            return;
+        }
+
         this.productsLoading = true;
         try {
-            const data = await this.api('GET', `/products?page=${page}`);
+            const data = await this.api('GET', `/products?${query}`);
             if (request !== this.productsRequest) {
                 return;
             }
@@ -207,7 +275,13 @@ Alpine.data('adminPanel', () => ({
             this.products = data.data;
             this.productsMeta = data.meta;
         } catch (error) {
-            if (request === this.productsRequest) {
+            if (request !== this.productsRequest) {
+                return;
+            }
+            if (error.status === 422) {
+                this.filterErrors = error.errors;
+                this.clearProducts();
+            } else {
                 this.showError(error);
             }
         } finally {
