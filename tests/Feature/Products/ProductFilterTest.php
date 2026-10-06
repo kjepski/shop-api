@@ -57,6 +57,14 @@ class ProductFilterTest extends TestCase
         $this->assertNames($this->getJson('/api/products?search='.urlencode('e\\H')), ['Rake\\Hoe']);
     }
 
+    public function test_search_treats_escape_character_literally(): void
+    {
+        Product::factory()->create(['name' => 'Rake!Hoe']);
+        Product::factory()->create(['name' => 'RakeHoe']);
+
+        $this->assertNames($this->getJson('/api/products?search='.urlencode('e!H')), ['Rake!Hoe']);
+    }
+
     public function test_category_filter_includes_subcategories(): void
     {
         $garden = Category::factory()->create();

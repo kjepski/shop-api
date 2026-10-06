@@ -65,10 +65,11 @@ class Product extends Model
      */
     public function scopeSearch(Builder $query, string $term): void
     {
-        $pattern = '%'.addcslashes($term, '\\%_').'%';
+        // An explicit ESCAPE character, because the default differs per database (MySQL: \, SQLite: none).
+        $pattern = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $term).'%';
 
         $query->where(function (Builder $query) use ($pattern): void {
-            $query->where('name', 'like', $pattern)->orWhere('sku', 'like', $pattern);
+            $query->whereRaw("name LIKE ? ESCAPE '!'", [$pattern])->orWhereRaw("sku LIKE ? ESCAPE '!'", [$pattern]);
         });
     }
 
