@@ -42,6 +42,16 @@ class RegisterTest extends TestCase
             ->assertJsonPath('data.id', $user->id);
     }
 
+    // End-to-end guard: is_admin sent by a client must never reach the user record,
+    // whether it is stopped by validated() or by the model's $fillable.
+    public function test_register_cannot_grant_admin_role(): void
+    {
+        $this->postJson('/api/register', [...$this->validPayload(), 'is_admin' => true])
+            ->assertCreated();
+
+        $this->assertFalse(User::where('email', 'jan@example.com')->firstOrFail()->is_admin);
+    }
+
     public function test_register_requires_all_fields(): void
     {
         $this->postJson('/api/register', [])
