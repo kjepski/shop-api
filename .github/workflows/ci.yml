@@ -4,9 +4,18 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
+# A new push to a PR cancels the run for its previous commit.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     # Tests run on the same database engine as the app (Sail: mysql:8.4), not SQLite,
     # so engine-specific behaviour (e.g. LIKE escaping) is caught here.
     env:
@@ -42,3 +51,25 @@ jobs:
       - run: ./vendor/bin/pint --test
       - run: ./vendor/bin/phpstan analyse --memory-limit=1G
       - run: php artisan test
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'   # same major as the Sail container
+          cache: npm
+      - run: npm ci
+      # The build downloads web fonts (laravel-vite-plugin, fonts.bunny.net); caching them
+      # keeps the job from failing on a short outage of the font CDN.
+      - uses: actions/cache@v4
+        with:
+          path: node_modules/.cache/laravel-vite-plugin/fonts
+          key: vite-fonts-${{ hashFiles('vite.config.js') }}
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run type-check
+      - run: npm run test
+      - run: npm run build

@@ -19,8 +19,9 @@ Jeśli zlecający podał kontekst (cel, ustalenia, status testów), traktuj go j
 - **Obsługa błędów API:** 401 (koniec sesji), 403, 404, 409, 422 (błędy przy polach, nieaktualne wiersze pod złym filtrem), 429 (`Retry-After`); czy błąd przeładowania nie wygląda jak błąd zapisu.
 - **Dane i typy:** zgodność `types/` z API Resources, pieniądze tylko w groszach po stronie API i bez floatów, poprawne typy w `defineProps`/`defineEmits`.
 - **Bezpieczeństwo:** żadnego `v-html` na danych z API; nowy panel uwierzytelnia się ciasteczkiem Sanctum SPA i nie trzyma tokenu w JS (`localStorage`/`sessionStorage`); CSRF przed żądaniami zmieniającymi dane; brak sekretów w kodzie.
-- **Dostępność:** etykiety pól, focus w modalu i Escape, obsługa klawiaturą, czytelne komunikaty błędów.
+- **Dostępność:** etykiety pól, focus po zmianie trasy, focus w dialogu potwierdzenia i Escape, obsługa klawiaturą, czytelne komunikaty błędów.
 - **Router i uprawnienia:** strażnicy tras (brak sesji, trasy tylko dla admina), synchronizacja filtrów/sortu/strony z URL.
+- **Ekrany jako trasy:** szczegóły, dodawanie i edycja to osobne podstrony, nie modale (modal tylko do potwierdzeń); każda działa po odświeżeniu i z bezpośredniego linku; 404 z API daje stronę „Nie znaleziono”; powrót z formularza zachowuje filtry listy; niezapisane zmiany pytają przed wyjściem.
 - **Testy:** czy testują zachowanie widoczne dla użytkownika, czy mogą się nie powieść, czego brakuje; wskaż mutacje, które przeszłyby niezauważone.
 - Zgodność z AGENTS.md i CLAUDE.md.
 
