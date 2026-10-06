@@ -100,6 +100,34 @@ class CategoryUpdateTest extends TestCase
             ->assertJsonValidationErrors(['parent_id']);
     }
 
+    public function test_update_rejects_missing_parent(): void
+    {
+        Sanctum::actingAs(User::factory()->admin()->create());
+        $category = Category::factory()->create();
+
+        $this->patchJson("/api/categories/{$category->id}", ['parent_id' => 999])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['parent_id']);
+    }
+
+    public function test_update_rejects_invalid_slug_format(): void
+    {
+        Sanctum::actingAs(User::factory()->admin()->create());
+        $category = Category::factory()->create();
+
+        $this->patchJson("/api/categories/{$category->id}", ['slug' => 'Not_Valid'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['slug']);
+    }
+
+    public function test_regular_user_gets_403_before_validation(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+        $category = Category::factory()->create();
+
+        $this->patchJson("/api/categories/{$category->id}", ['name' => ''])->assertForbidden();
+    }
+
     public function test_regular_user_cannot_update_category(): void
     {
         Sanctum::actingAs(User::factory()->create());

@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class CategoryStoreTest extends TestCase
@@ -34,6 +35,8 @@ class CategoryStoreTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.slug', 'garden-shovels')
             ->assertJsonPath('data.parent_id', $parent->id);
+
+        $this->assertDatabaseHas('categories', ['slug' => 'garden-shovels', 'parent_id' => $parent->id]);
     }
 
     public function test_create_requires_name(): void
@@ -57,13 +60,40 @@ class CategoryStoreTest extends TestCase
             ->assertJsonValidationErrors(['slug']);
     }
 
-    public function test_create_rejects_invalid_slug_format(): void
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function invalidSlugs(): array
+    {
+        return [
+            'spaces and punctuation' => ['not a slug!'],
+            'uppercase' => ['Garden'],
+            'underscore' => ['garden_tools'],
+            'non-ascii' => ['ogród'],
+            'double hyphen' => ['garden--tools'],
+            'trailing hyphen' => ['garden-'],
+        ];
+    }
+
+    #[DataProvider('invalidSlugs')]
+    public function test_create_rejects_invalid_slug_format(string $slug): void
     {
         Sanctum::actingAs(User::factory()->admin()->create());
 
-        $this->postJson('/api/categories', ['name' => 'Garden', 'slug' => 'not a slug!'])
+        $this->postJson('/api/categories', ['name' => 'Garden', 'slug' => $slug])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['slug']);
+
+        $this->assertDatabaseCount('categories', 0);
+    }
+
+    public function test_create_asks_for_explicit_slug_when_name_yields_none(): void
+    {
+        Sanctum::actingAs(User::factory()->admin()->create());
+
+        $this->postJson('/api/categories', ['name' => '???'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['slug' => 'Provide a slug explicitly']);
     }
 
     public function test_create_rejects_missing_parent(): void
@@ -94,6 +124,13 @@ class CategoryStoreTest extends TestCase
         $this->postJson('/api/categories', ['name' => 'Garden Tools'])->assertForbidden();
 
         $this->assertDatabaseCount('categories', 0);
+    }
+
+    public function test_regular_user_gets_403_before_validation(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        $this->postJson('/api/categories', [])->assertForbidden();
     }
 
     public function test_create_requires_token(): void

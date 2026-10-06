@@ -22,6 +22,25 @@ class CategoryDestroyTest extends TestCase
         $this->assertModelMissing($category);
     }
 
+    public function test_admin_can_delete_subcategory_and_parent_stays(): void
+    {
+        Sanctum::actingAs(User::factory()->admin()->create());
+        $parent = Category::factory()->create();
+        $child = Category::factory()->childOf($parent)->create();
+
+        $this->deleteJson("/api/categories/{$child->id}")->assertNoContent();
+
+        $this->assertModelMissing($child);
+        $this->assertModelExists($parent);
+    }
+
+    public function test_delete_of_missing_category_returns_404(): void
+    {
+        Sanctum::actingAs(User::factory()->admin()->create());
+
+        $this->deleteJson('/api/categories/999')->assertNotFound();
+    }
+
     public function test_category_with_subcategories_cannot_be_deleted(): void
     {
         Sanctum::actingAs(User::factory()->admin()->create());

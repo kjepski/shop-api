@@ -24,7 +24,7 @@ class UpdateCategoryRequest extends FormRequest
 
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'slug' => ['sometimes', 'required', 'string', 'max:255', 'alpha_dash', Rule::unique('categories', 'slug')->ignore($category)],
+            'slug' => ['sometimes', 'required', 'string', 'max:255', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/', Rule::unique('categories', 'slug')->ignore($category)],
             'parent_id' => [
                 'sometimes',
                 'nullable',
@@ -47,6 +47,7 @@ class UpdateCategoryRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'slug.regex' => 'The slug may only contain lowercase letters, digits and single hyphens.',
             'parent_id.not_in' => 'A category cannot be its own parent.',
             'parent_id.exists' => 'The parent must be an existing top-level category.',
         ];
