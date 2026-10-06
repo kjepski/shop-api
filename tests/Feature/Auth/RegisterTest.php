@@ -42,6 +42,14 @@ class RegisterTest extends TestCase
             ->assertJsonPath('data.id', $user->id);
     }
 
+    public function test_register_cannot_grant_admin_role(): void
+    {
+        $this->postJson('/api/register', [...$this->validPayload(), 'is_admin' => true])
+            ->assertCreated();
+
+        $this->assertFalse(User::where('email', 'jan@example.com')->firstOrFail()->is_admin);
+    }
+
     public function test_register_requires_all_fields(): void
     {
         $this->postJson('/api/register', [])
