@@ -9,10 +9,12 @@ import Alpine from 'alpinejs';
 const TOKEN_KEY = 'shop-admin-token';
 
 class ApiError extends Error {
-    constructor(status, body) {
+    constructor(status, body, retryAfter = null) {
         super(body?.message || `Błąd HTTP ${status}`);
         this.status = status;
         this.errors = body?.errors || {};
+        // Seconds until a rate limit (429) lets requests through again.
+        this.retryAfter = retryAfter;
     }
 }
 
@@ -131,7 +133,8 @@ Alpine.data('adminPanel', () => ({
         }
 
         if (!response.ok) {
-            throw new ApiError(response.status, data);
+            const retryAfter = Number(response.headers.get('Retry-After')) || null;
+            throw new ApiError(response.status, data, retryAfter);
         }
 
         return data;
@@ -147,7 +150,12 @@ Alpine.data('adminPanel', () => ({
         if (error.status === 401) {
             return;
         }
-        const prefix = { 403: 'Brak uprawnień', 404: 'Nie znaleziono', 409: 'Konflikt', 429: 'Za dużo prób' }[error.status];
+        if (error.status === 429) {
+            const wait = error.retryAfter ? ` za ${error.retryAfter} s` : ' za chwilę';
+            this.showFlash('error', `Za dużo zapytań, spróbuj ponownie${wait}.`);
+            return;
+        }
+        const prefix = { 403: 'Brak uprawnień', 404: 'Nie znaleziono', 409: 'Konflikt' }[error.status];
         this.showFlash('error', prefix ? `${prefix}: ${error.message}` : error.message);
     },
 
@@ -306,6 +314,10 @@ Alpine.data('adminPanel', () => ({
                 this.filterErrors = error.errors;
                 this.clearProducts();
             } else {
+                // After a 429 the rows still belong to the previous filters, so they must go too.
+                if (error.status === 429) {
+                    this.clearProducts();
+                }
                 this.showError(error);
             }
         } finally {
@@ -422,6 +434,10 @@ Alpine.data('adminPanel', () => ({
                 this.users = [];
                 this.usersMeta = null;
                 return;
+            }
+            if (error.status === 429) {
+                this.users = [];
+                this.usersMeta = null;
             }
             this.showError(error);
             // Someone else may have taken our admin role away; re-read it so the tab disappears.

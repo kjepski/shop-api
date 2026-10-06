@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Users;
 
+use App\Http\Requests\Concerns\DetectsFilterInput;
 use App\Models\User;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -11,6 +12,13 @@ use Illuminate\Validation\Rule;
 
 class IndexUserRequest extends FormRequest
 {
+    use DetectsFilterInput;
+
+    /**
+     * Query parameters that narrow the list; must match the keys of rules().
+     */
+    public const FILTERS = ['search', 'role'];
+
     public function authorize(): Response
     {
         return Gate::inspect('viewAny', User::class);
