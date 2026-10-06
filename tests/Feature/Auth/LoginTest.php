@@ -51,7 +51,38 @@ class LoginTest extends TestCase
             'password' => 'secret-password',
         ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['email']);
+            ->assertJsonValidationErrors(['email'])
+            ->assertJsonMissingPath('token');
+
+        $this->assertDatabaseCount('personal_access_tokens', 0);
+    }
+
+    public function test_login_email_is_case_insensitive(): void
+    {
+        $user = User::factory()->create(['email' => 'jan@example.com', 'password' => 'secret-password']);
+
+        $this->postJson('/api/login', [
+            'email' => '  Jan@Example.COM ',
+            'password' => 'secret-password',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.id', $user->id);
+    }
+
+    public function test_login_is_throttled_per_email_after_five_failed_attempts(): void
+    {
+        $user = User::factory()->create(['password' => 'secret-password']);
+        $payload = ['email' => $user->email, 'password' => 'wrong-password'];
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->postJson('/api/login', $payload)->assertUnprocessable();
+        }
+
+        $this->postJson('/api/login', $payload)->assertTooManyRequests();
+
+        // A different email from the same IP is not blocked.
+        $this->postJson('/api/login', ['email' => 'other@example.com', 'password' => 'x'])
+            ->assertUnprocessable();
     }
 
     public function test_login_requires_email_and_password(): void

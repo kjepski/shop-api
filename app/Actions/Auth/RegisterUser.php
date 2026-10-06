@@ -3,6 +3,7 @@
 namespace App\Actions\Auth;
 
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 class RegisterUser
 {
@@ -14,11 +15,13 @@ class RegisterUser
      */
     public function handle(array $data): array
     {
-        $user = User::create($data);
+        return DB::transaction(function () use ($data) {
+            $user = User::create($data);
 
-        return [
-            'user' => $user,
-            'token' => $user->createToken('api')->plainTextToken,
-        ];
+            return [
+                'user' => $user,
+                'token' => $user->createToken('api')->plainTextToken,
+            ];
+        });
     }
 }

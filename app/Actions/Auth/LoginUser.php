@@ -19,6 +19,11 @@ class LoginUser
     {
         $user = User::where('email', $email)->first();
 
+        if (! $user) {
+            // Spend the same hashing time as a real check so response timing does not reveal registered emails.
+            Hash::make($password);
+        }
+
         if (! $user || ! Hash::check($password, $user->password)) {
             throw ValidationException::withMessages([
                 'email' => __('auth.failed'),

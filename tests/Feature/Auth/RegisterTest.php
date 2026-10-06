@@ -56,6 +56,8 @@ class RegisterTest extends TestCase
         $this->postJson('/api/register', [...$this->validPayload(), 'email' => 'not-an-email'])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['email']);
+
+        $this->assertDatabaseCount('users', 0);
     }
 
     public function test_register_rejects_taken_email(): void
@@ -74,5 +76,43 @@ class RegisterTest extends TestCase
         $this->postJson('/api/register', [...$this->validPayload(), 'password_confirmation' => 'different'])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['password']);
+
+        $this->assertDatabaseCount('users', 0);
+    }
+
+    public function test_register_rejects_too_short_password(): void
+    {
+        $this->postJson('/api/register', [...$this->validPayload(), 'password' => 'short', 'password_confirmation' => 'short'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['password']);
+
+        $this->assertDatabaseCount('users', 0);
+    }
+
+    public function test_register_rejects_too_long_name(): void
+    {
+        $this->postJson('/api/register', [...$this->validPayload(), 'name' => str_repeat('a', 256)])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['name']);
+    }
+
+    public function test_register_normalizes_email_and_rejects_case_variant_duplicate(): void
+    {
+        $this->postJson('/api/register', [...$this->validPayload(), 'email' => ' Jan@Example.COM '])
+            ->assertCreated()
+            ->assertJsonPath('data.email', 'jan@example.com');
+
+        $this->postJson('/api/register', [...$this->validPayload(), 'email' => 'JAN@example.com'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['email']);
+    }
+
+    public function test_register_is_throttled_after_six_attempts(): void
+    {
+        for ($i = 0; $i < 6; $i++) {
+            $this->postJson('/api/register', [])->assertUnprocessable();
+        }
+
+        $this->postJson('/api/register', [])->assertTooManyRequests();
     }
 }
