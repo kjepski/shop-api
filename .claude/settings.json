@@ -1,0 +1,32 @@
+{
+    "permissions": {
+        "allow": [
+            "Bash(./vendor/bin/sail artisan:*)",
+            "Bash(./vendor/bin/sail composer:*)",
+            "Bash(./vendor/bin/sail bin:*)",
+            "Bash(git status)",
+            "Bash(git diff:*)",
+            "Bash(git switch:*)",
+            "Bash(git add:*)",
+            "Bash(git commit:*)",
+            "Bash(git push:*)",
+            "Bash(gh pr:*)"
+        ],
+        "deny": [
+            "Read(./.env)",
+            "Read(./.env.*)",
+            "Bash(git push --force:*)",
+            "Bash(rm -rf:*)"
+        ]
+    },
+    "hooks": {
+        "PostToolUse": [
+            {
+                "matcher": "Edit|Write",
+                "hooks": [
+                    { "type": "command", "command": "./vendor/bin/sail bin pint --dirty -q" }
+                ]
+            }
+        ]
+    }
+}
