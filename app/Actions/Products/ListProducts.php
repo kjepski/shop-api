@@ -11,9 +11,10 @@ class ListProducts
 {
     /**
      * @param  array{search?: string, category_id?: int, min_price?: int, max_price?: int, in_stock?: true}  $filters
+     * @param  string  $sort  one of Product::sortValues()
      * @return LengthAwarePaginator<int, Product>
      */
-    public function handle(User $user, array $filters): LengthAwarePaginator
+    public function handle(User $user, array $filters, string $sort): LengthAwarePaginator
     {
         return Product::query()
             ->visibleTo($user)
@@ -22,8 +23,7 @@ class ListProducts
             ->priceBetween($filters['min_price'] ?? null, $filters['max_price'] ?? null)
             ->when(isset($filters['in_stock']), fn (Builder $query) => $query->inStock())
             ->with('category')
-            ->orderBy('name')
-            ->orderBy('id')
+            ->sorted($sort)
             ->paginate(15);
     }
 }

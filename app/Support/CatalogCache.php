@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Cache;
  * Caches rendered catalog list pages. Payloads are plain arrays, because the cache
  * refuses to unserialize PHP objects (see cache.serializable_classes).
  *
- * Keys contain only the page (and audience): only the unfiltered list is cached, because
+ * Keys contain only the page, audience and sort: only the unfiltered list is cached, because
  * filter combinations are unbounded. Any parameter that changes the result (filters,
  * sorting, per_page) must either bypass this cache or become part of the key.
  */
@@ -29,16 +29,16 @@ class CatalogCache
     }
 
     /**
-     * Admins see inactive products too, so they get their own cache entries.
+     * Admins see inactive products too, so they get their own cache entries; so does each sort.
      *
      * @param  Closure(): array<string, mixed>  $build
      * @return array<string, mixed>
      */
-    public function rememberProductsPage(bool $forAdmin, int $page, Closure $build): array
+    public function rememberProductsPage(bool $forAdmin, string $sort, int $page, Closure $build): array
     {
         $audience = $forAdmin ? 'admin' : 'public';
 
-        return $this->remember(self::PRODUCTS_TAG, "catalog:products:{$audience}:page:{$page}", $page, $build);
+        return $this->remember(self::PRODUCTS_TAG, "catalog:products:{$audience}:sort:{$sort}:page:{$page}", $page, $build);
     }
 
     /**

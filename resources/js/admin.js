@@ -56,6 +56,9 @@ const emptyCategory = () => ({ name: '', slug: '', parent_id: '' });
 
 const RESOURCES = { product: '/products', category: '/categories', user: '/users' };
 
+// Mirrors DEFAULT_SORT on the Product and User models; it is left out of the query string.
+const DEFAULT_SORT = 'name';
+
 Alpine.data('adminPanel', () => ({
     token: readToken(),
     user: null,
@@ -76,6 +79,8 @@ Alpine.data('adminPanel', () => ({
     productsMeta: null,
     // Prices are typed in złoty, like in the product form.
     filters: { search: '', category_id: '', min_price: '', max_price: '', in_stock: false },
+    // Sorting is not a filter: it does not count for "Wyczyść" or the empty-list message.
+    productSort: DEFAULT_SORT,
     filterErrors: {},
     categories: [],
     categoriesMeta: null,
@@ -83,6 +88,7 @@ Alpine.data('adminPanel', () => ({
     usersMeta: null,
     usersLoading: false,
     userFilters: { search: '', role: '' },
+    userSort: DEFAULT_SORT,
     userFilterErrors: {},
     // Every category across all pages, for names, select options and the parent column.
     allCategories: [],
@@ -215,6 +221,8 @@ Alpine.data('adminPanel', () => ({
         this.usersMeta = null;
         this.userFilters = { search: '', role: '' };
         this.userFilterErrors = {};
+        this.productSort = DEFAULT_SORT;
+        this.userSort = DEFAULT_SORT;
         // Responses still in flight from the old session must not land in the page.
         this.productsRequest++;
         this.categoriesRequest++;
@@ -253,6 +261,9 @@ Alpine.data('adminPanel', () => ({
         }
         if (this.filters.in_stock) {
             params.set('in_stock', '1');
+        }
+        if (this.productSort !== DEFAULT_SORT) {
+            params.set('sort', this.productSort);
         }
 
         this.filterErrors = errors;
@@ -391,6 +402,9 @@ Alpine.data('adminPanel', () => ({
         }
         if (this.userFilters.role !== '') {
             params.set('role', this.userFilters.role);
+        }
+        if (this.userSort !== DEFAULT_SORT) {
+            params.set('sort', this.userSort);
         }
 
         return params.toString();
