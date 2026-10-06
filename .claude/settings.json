@@ -10,21 +10,40 @@
             "Bash(git add:*)",
             "Bash(git commit:*)",
             "Bash(git push:*)",
-            "Bash(gh pr:*)"
+            "Bash(gh pr:*)",
+            "Bash(./vendor/bin/sail npm:*)",
+            "Bash(./vendor/bin/sail npx:*)",
+            "Bash(git log:*)",
+            "Bash(git fetch:*)",
+            "Bash(git pull --ff-only:*)",
+            "Bash(gh run view:*)"
         ],
         "deny": [
             "Read(./.env)",
             "Read(./.env.*)",
             "Bash(git push --force:*)",
-            "Bash(rm -rf:*)"
+            "Bash(rm -rf:*)",
+            "Bash(./vendor/bin/sail artisan migrate:fresh:*)",
+            "Bash(./vendor/bin/sail artisan migrate:reset:*)",
+            "Bash(./vendor/bin/sail artisan db:wipe:*)",
+            "Bash(./vendor/bin/sail artisan tinker:*)",
+            "Bash(gh pr merge:*)",
+            "Bash(git push -f:*)",
+            "Bash(git push --force-with-lease:*)",
+            "Bash(git push origin main:*)",
+            "Bash(rm -fr:*)"
         ]
     },
     "hooks": {
         "PostToolUse": [
             {
-                "matcher": "Edit|Write",
+                "matcher": "Edit|Write|MultiEdit",
                 "hooks": [
-                    { "type": "command", "command": "./vendor/bin/sail bin pint --dirty -q" }
+                    {
+                        "type": "command",
+                        "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format.py",
+                        "timeout": 120
+                    }
                 ]
             }
         ]
