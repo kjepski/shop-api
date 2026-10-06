@@ -31,15 +31,27 @@ class TokenExpirationTest extends TestCase
         $this->withToken($token)->getJson('/api/me')->assertUnauthorized();
     }
 
-    public function test_prune_command_is_scheduled_daily_with_one_day_grace_period(): void
+    private function pruneEvent(): Event
     {
         $events = collect($this->app->make(Schedule::class)->events())
             ->filter(fn (Event $event) => str_contains((string) $event->command, 'sanctum:prune-expired'));
 
         $this->assertCount(1, $events);
-        $this->assertSame('0 0 * * *', $events->first()?->expression);
-        $this->assertStringContainsString('--hours=24', (string) $events->first()?->command);
-        $this->assertTrue($events->first()?->onOneServer);
+
+        return $events->first();
+    }
+
+    public function test_prune_command_is_scheduled_daily_with_one_day_grace_period(): void
+    {
+        $event = $this->pruneEvent();
+
+        $this->assertSame('0 0 * * *', $event->expression);
+        $this->assertStringContainsString('--hours=24', (string) $event->command);
+    }
+
+    public function test_prune_command_runs_on_one_server_only(): void
+    {
+        $this->assertTrue($this->pruneEvent()->onOneServer);
     }
 
     public function test_tokens_table_has_index_on_created_at_used_by_prune(): void
