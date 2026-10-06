@@ -50,7 +50,9 @@ class ProductUpdateTest extends TestCase
         $product = Product::factory()->create(['slug' => 'rake', 'sku' => 'RAKE-001']);
 
         $this->patchJson("/api/products/{$product->id}", ['slug' => 'rake', 'sku' => 'rake-001'])
-            ->assertOk();
+            ->assertOk()
+            ->assertJsonPath('data.slug', 'rake')
+            ->assertJsonPath('data.sku', 'RAKE-001');
     }
 
     public function test_update_rejects_slug_and_sku_of_another_product(): void
@@ -98,6 +100,14 @@ class ProductUpdateTest extends TestCase
         $this->patchJson("/api/products/{$product->id}", ['price' => 1])->assertForbidden();
 
         $this->assertSame(1000, $product->fresh()?->price);
+    }
+
+    public function test_inactive_product_is_not_found_for_regular_user_on_update(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+        $product = Product::factory()->inactive()->create();
+
+        $this->patchJson("/api/products/{$product->id}", ['price' => 1])->assertNotFound();
     }
 
     public function test_update_requires_token(): void

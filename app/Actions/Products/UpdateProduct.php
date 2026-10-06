@@ -7,7 +7,7 @@ use App\Models\Product;
 class UpdateProduct
 {
     /**
-     * @param  array<string, mixed>  $data  Validated product attributes.
+     * @param  array{category_id?: int, name?: string, slug?: string, sku?: string, price?: int, description?: string|null, stock?: int, is_active?: bool}  $data
      */
     public function handle(Product $product, array $data): Product
     {

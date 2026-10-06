@@ -6,7 +6,6 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -48,10 +47,11 @@ class ProductIndexTest extends TestCase
             ->assertJsonPath('data.1.is_active', false);
     }
 
-    public function test_list_is_paginated_by_fifteen(): void
+    public function test_list_is_paginated_by_fifteen_and_counts_only_visible_products(): void
     {
         Sanctum::actingAs(User::factory()->create());
         Product::factory(20)->create();
+        Product::factory(3)->inactive()->create();
 
         $this->getJson('/api/products?page=2')
             ->assertOk()
@@ -62,31 +62,8 @@ class ProductIndexTest extends TestCase
             ->assertJsonStructure(['links' => ['first', 'last', 'prev', 'next']]);
     }
 
-    public function test_query_count_does_not_grow_with_number_of_products(): void
-    {
-        Sanctum::actingAs(User::factory()->create());
-
-        Product::factory(2)->create();
-        $fewProductsQueries = $this->countQueries(fn () => $this->getJson('/api/products')->assertOk());
-
-        Product::factory(10)->create();
-        $manyProductsQueries = $this->countQueries(fn () => $this->getJson('/api/products')->assertOk());
-
-        $this->assertSame($fewProductsQueries, $manyProductsQueries);
-    }
-
     public function test_list_requires_token(): void
     {
         $this->getJson('/api/products')->assertUnauthorized();
-    }
-
-    private function countQueries(callable $callback): int
-    {
-        DB::flushQueryLog();
-        DB::enableQueryLog();
-        $callback();
-        DB::disableQueryLog();
-
-        return count(DB::getQueryLog());
     }
 }

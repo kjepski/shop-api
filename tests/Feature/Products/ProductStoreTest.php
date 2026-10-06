@@ -98,6 +98,9 @@ class ProductStoreTest extends TestCase
         return [
             'fractional price' => ['price', 49.99],
             'price as decimal string' => ['price', '49.99'],
+            'price as integer string' => ['price', '4999'],
+            'price as boolean' => ['price', true],
+            'stock as boolean' => ['stock', true],
             'negative price' => ['price', -1],
             'price above column limit' => ['price', 4294967296],
             'negative stock' => ['stock', -1],

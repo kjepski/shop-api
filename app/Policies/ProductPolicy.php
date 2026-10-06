@@ -28,13 +28,25 @@ class ProductPolicy
         return $user->is_admin;
     }
 
-    public function update(User $user, Product $product): bool
+    public function update(User $user, Product $product): Response
     {
-        return $user->is_admin;
+        return $this->adminOnly($user, $product);
     }
 
-    public function delete(User $user, Product $product): bool
+    public function delete(User $user, Product $product): Response
     {
-        return $user->is_admin;
+        return $this->adminOnly($user, $product);
+    }
+
+    /**
+     * Regular users get 404 for inactive products, so writes cannot reveal that they exist.
+     */
+    private function adminOnly(User $user, Product $product): Response
+    {
+        if ($user->is_admin) {
+            return Response::allow();
+        }
+
+        return $product->is_active ? Response::deny() : Response::denyAsNotFound();
     }
 }

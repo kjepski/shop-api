@@ -37,9 +37,9 @@ class StoreProductRequest extends FormRequest
             'slug' => ['required', 'string', 'max:255', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/', Rule::unique('products', 'slug')],
             'sku' => ['required', 'string', 'max:64', 'regex:/^[A-Z0-9]+(?:-[A-Z0-9]+)*$/', Rule::unique('products', 'sku')],
             'description' => ['nullable', 'string', 'max:10000'],
-            // Price in grosze; the upper bound is the unsigned INT column limit.
-            'price' => ['required', 'integer', 'min:0', 'max:4294967295'],
-            'stock' => ['sometimes', 'integer', 'min:0', 'max:4294967295'],
+            // Price in grosze as a JSON integer (strict, so true or "49.99" are rejected); the upper bound is the unsigned INT column limit.
+            'price' => ['required', 'integer:strict', 'min:0', 'max:4294967295'],
+            'stock' => ['sometimes', 'integer:strict', 'min:0', 'max:4294967295'],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }

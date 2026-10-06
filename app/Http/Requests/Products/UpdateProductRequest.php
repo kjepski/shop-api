@@ -3,16 +3,21 @@
 namespace App\Http\Requests\Products;
 
 use App\Models\Product;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class UpdateProductRequest extends FormRequest
 {
-    public function authorize(): bool
+    /**
+     * Returns the full policy response, so an inactive product yields 404 instead of 403.
+     */
+    public function authorize(): Response
     {
-        return $this->user()?->can('update', $this->product()) ?? false;
+        return Gate::inspect('update', $this->product());
     }
 
     protected function prepareForValidation(): void
@@ -35,9 +40,9 @@ class UpdateProductRequest extends FormRequest
             'slug' => ['sometimes', 'required', 'string', 'max:255', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/', Rule::unique('products', 'slug')->ignore($product)],
             'sku' => ['sometimes', 'required', 'string', 'max:64', 'regex:/^[A-Z0-9]+(?:-[A-Z0-9]+)*$/', Rule::unique('products', 'sku')->ignore($product)],
             'description' => ['sometimes', 'nullable', 'string', 'max:10000'],
-            // Price in grosze; the upper bound is the unsigned INT column limit.
-            'price' => ['sometimes', 'required', 'integer', 'min:0', 'max:4294967295'],
-            'stock' => ['sometimes', 'required', 'integer', 'min:0', 'max:4294967295'],
+            // Price in grosze as a JSON integer (strict, so true or "49.99" are rejected); the upper bound is the unsigned INT column limit.
+            'price' => ['sometimes', 'required', 'integer:strict', 'min:0', 'max:4294967295'],
+            'stock' => ['sometimes', 'required', 'integer:strict', 'min:0', 'max:4294967295'],
             'is_active' => ['sometimes', 'required', 'boolean'],
         ];
     }

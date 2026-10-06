@@ -38,7 +38,10 @@ class ProductController extends Controller
 
     public function store(StoreProductRequest $request, CreateProduct $createProduct): JsonResponse
     {
-        $product = $createProduct->handle($request->validated());
+        /** @var array{category_id: int, name: string, slug: string, sku: string, price: int, description?: string|null, stock?: int, is_active?: bool} $data */
+        $data = $request->validated();
+
+        $product = $createProduct->handle($data);
 
         return ProductResource::make($product->load('category'))
             ->response()
@@ -54,7 +57,10 @@ class ProductController extends Controller
 
     public function update(UpdateProductRequest $request, Product $product, UpdateProduct $updateProduct): ProductResource
     {
-        $product = $updateProduct->handle($product, $request->validated());
+        /** @var array{category_id?: int, name?: string, slug?: string, sku?: string, price?: int, description?: string|null, stock?: int, is_active?: bool} $data */
+        $data = $request->validated();
+
+        $product = $updateProduct->handle($product, $data);
 
         return ProductResource::make($product->load('category'));
     }

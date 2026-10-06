@@ -33,6 +33,16 @@ class ProductDestroyTest extends TestCase
         $this->assertModelExists($product);
     }
 
+    public function test_inactive_product_is_not_found_for_regular_user_on_delete(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+        $product = Product::factory()->inactive()->create();
+
+        $this->deleteJson("/api/products/{$product->id}")->assertNotFound();
+
+        $this->assertModelExists($product);
+    }
+
     public function test_delete_of_missing_product_returns_404(): void
     {
         Sanctum::actingAs(User::factory()->admin()->create());
