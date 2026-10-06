@@ -133,4 +133,16 @@ return [
 
     'serializable_classes' => false,
 
+    /*
+    |--------------------------------------------------------------------------
+    | Catalog Cache TTL
+    |--------------------------------------------------------------------------
+    |
+    | How long, in seconds, rendered category and product list pages stay
+    | cached. Writes flush them earlier. Requires a store that supports tags.
+    |
+    */
+
+    'catalog_ttl' => max(1, (int) env('CATALOG_CACHE_TTL', 3600)),
+
 ];

@@ -11,29 +11,38 @@ use App\Http\Requests\Products\UpdateProductRequest;
 use App\Http\Resources\ProductResource;
 use App\Models\Product;
 use App\Models\User;
+use App\Support\CatalogCache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Gate;
 
 class ProductController extends Controller
 {
-    public function index(Request $request): AnonymousResourceCollection
+    public function index(Request $request, CatalogCache $catalogCache): JsonResponse
     {
         Gate::authorize('viewAny', Product::class);
 
         /** @var User $user */
         $user = $request->user();
 
-        $products = Product::query()
-            ->visibleTo($user)
-            ->with('category')
-            ->orderBy('name')
-            ->orderBy('id')
-            ->paginate(15);
+        $payload = $catalogCache->rememberProductsPage(
+            $user->is_admin,
+            Paginator::resolveCurrentPage(),
+            fn (): array => ProductResource::collection(
+                Product::query()
+                    ->visibleTo($user)
+                    ->with('category')
+                    ->orderBy('name')
+                    ->orderBy('id')
+                    ->paginate(15)
+                    // Links get cached for everyone, so they must not come from the request's Host header.
+                    ->withPath(config()->string('app.url').'/'.$request->path())
+            )->toResponse($request)->getData(true),
+        );
 
-        return ProductResource::collection($products);
+        return response()->json($payload);
     }
 
     public function store(StoreProductRequest $request, CreateProduct $createProduct): JsonResponse

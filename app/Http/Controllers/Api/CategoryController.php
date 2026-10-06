@@ -10,20 +10,32 @@ use App\Http\Requests\Categories\StoreCategoryRequest;
 use App\Http\Requests\Categories\UpdateCategoryRequest;
 use App\Http\Resources\CategoryResource;
 use App\Models\Category;
+use App\Support\CatalogCache;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Gate;
 
 class CategoryController extends Controller
 {
-    public function index(): AnonymousResourceCollection
+    public function index(Request $request, CatalogCache $catalogCache): JsonResponse
     {
         Gate::authorize('viewAny', Category::class);
 
-        $categories = Category::query()->orderBy('name')->orderBy('id')->paginate(15);
+        $payload = $catalogCache->rememberCategoriesPage(
+            Paginator::resolveCurrentPage(),
+            fn (): array => CategoryResource::collection(
+                Category::query()
+                    ->orderBy('name')
+                    ->orderBy('id')
+                    ->paginate(15)
+                    // Links get cached for everyone, so they must not come from the request's Host header.
+                    ->withPath(config()->string('app.url').'/'.$request->path())
+            )->toResponse($request)->getData(true),
+        );
 
-        return CategoryResource::collection($categories);
+        return response()->json($payload);
     }
 
     public function store(StoreCategoryRequest $request, CreateCategory $createCategory): JsonResponse
