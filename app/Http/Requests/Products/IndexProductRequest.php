@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Products;
 
+use App\Http\Requests\Concerns\DetectsFilterInput;
 use App\Models\Product;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -9,6 +10,13 @@ use Illuminate\Validation\Rule;
 
 class IndexProductRequest extends FormRequest
 {
+    use DetectsFilterInput;
+
+    /**
+     * Query parameters that narrow the list; must match the keys of rules().
+     */
+    public const FILTERS = ['search', 'category_id', 'min_price', 'max_price', 'in_stock'];
+
     public function authorize(): bool
     {
         return $this->user()?->can('viewAny', Product::class) ?? false;

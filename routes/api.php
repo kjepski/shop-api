@@ -14,6 +14,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
 
     Route::apiResource('categories', CategoryController::class);
-    Route::apiResource('products', ProductController::class);
-    Route::apiResource('users', UserController::class)->except('store');
+    Route::apiResource('products', ProductController::class)->middlewareFor('index', 'throttle:product-search');
+    Route::apiResource('users', UserController::class)->except('store')->middlewareFor('index', 'throttle:user-search');
 });
