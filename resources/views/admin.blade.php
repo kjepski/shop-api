@@ -69,6 +69,8 @@
                                             :class="tab === 'products' ? 'bg-indigo-100 text-indigo-700' : 'hover:bg-gray-100'">Produkty</button>
                                     <button @click="tab = 'categories'" class="rounded px-3 py-1.5"
                                             :class="tab === 'categories' ? 'bg-indigo-100 text-indigo-700' : 'hover:bg-gray-100'">Kategorie</button>
+                                    <button x-show="isAdmin" @click="tab = 'users'" class="rounded px-3 py-1.5"
+                                            :class="tab === 'users' ? 'bg-indigo-100 text-indigo-700' : 'hover:bg-gray-100'">Użytkownicy</button>
                                 </nav>
                             </div>
                             <div class="flex items-center gap-3 text-sm">
@@ -233,6 +235,63 @@
                                 </div>
                             </div>
                         </section>
+
+                        {{-- Users (admins only; the API answers 403 to anyone else) --}}
+                        <section x-show="tab === 'users' && isAdmin">
+                            <div class="mb-4 flex items-center justify-between">
+                                <h2 class="text-lg font-semibold">Użytkownicy</h2>
+                            </div>
+
+                            <div class="overflow-x-auto rounded-lg bg-white shadow">
+                                <table class="min-w-full text-sm">
+                                    <thead class="bg-gray-50 text-left text-gray-600">
+                                        <tr>
+                                            <th class="px-4 py-2">Nazwa</th>
+                                            <th class="px-4 py-2">E-mail</th>
+                                            <th class="px-4 py-2">Rola</th>
+                                            <th class="px-4 py-2">Zarejestrowany</th>
+                                            <th class="px-4 py-2"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        <template x-for="account in users" :key="account.id">
+                                            <tr>
+                                                <td class="px-4 py-2 font-medium">
+                                                    <span x-text="account.name"></span>
+                                                    <span x-show="isSelf(account)" class="ml-1 text-xs text-gray-400">(Ty)</span>
+                                                </td>
+                                                <td class="px-4 py-2 text-gray-600" x-text="account.email"></td>
+                                                <td class="px-4 py-2">
+                                                    <span class="rounded-full px-2 py-0.5 text-xs"
+                                                          :class="account.is_admin ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-200 text-gray-600'"
+                                                          x-text="account.is_admin ? 'admin' : 'użytkownik'"></span>
+                                                </td>
+                                                <td class="px-4 py-2 text-gray-600" x-text="formatDate(account.created_at)"></td>
+                                                <td class="px-4 py-2 text-right whitespace-nowrap">
+                                                    <button @click="openUserForm(account)" class="text-indigo-600 hover:underline">Edytuj</button>
+                                                    <button @click="remove('user', account)" :disabled="isSelf(account)"
+                                                            :title="isSelf(account) ? 'Nie możesz usunąć własnego konta' : ''"
+                                                            class="ml-3 text-red-600 hover:underline disabled:cursor-not-allowed disabled:text-gray-300 disabled:no-underline">Usuń</button>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                        <tr x-show="users.length === 0">
+                                            <td colspan="5" class="px-4 py-6 text-center text-gray-500">Brak użytkowników.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div x-show="usersMeta" class="mt-4 flex items-center justify-between text-sm text-gray-600">
+                                <span x-text="`Strona ${usersMeta?.current_page} z ${usersMeta?.last_page} · ${usersMeta?.total} użytkowników`"></span>
+                                <div class="flex gap-2">
+                                    <button @click="loadUsers(usersMeta.current_page - 1)" :disabled="usersLoading || usersMeta?.current_page <= 1"
+                                            class="rounded border border-gray-300 bg-white px-3 py-1.5 disabled:opacity-40">Poprzednia</button>
+                                    <button @click="loadUsers(usersMeta.current_page + 1)" :disabled="usersLoading || usersMeta?.current_page >= usersMeta?.last_page"
+                                            class="rounded border border-gray-300 bg-white px-3 py-1.5 disabled:opacity-40">Następna</button>
+                                </div>
+                            </div>
+                        </section>
                     </main>
 
                     {{-- Create / edit modal --}}
@@ -241,7 +300,7 @@
                         <form @submit.prevent="saveModal" @click.outside="closeModal()"
                               class="max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
                             <h3 class="text-lg font-semibold"
-                                x-text="(modal.id ? 'Edytuj ' : 'Dodaj ') + (modal.kind === 'product' ? 'produkt' : 'kategorię')"></h3>
+                                x-text="(modal.id ? 'Edytuj ' : 'Dodaj ') + { product: 'produkt', category: 'kategorię', user: 'użytkownika' }[modal.kind]"></h3>
 
                             {{-- Product fields --}}
                             <template x-if="modal.kind === 'product'">
@@ -317,6 +376,29 @@
                                         </select>
                                         <span x-show="fieldError('parent_id')" x-text="fieldError('parent_id')" class="mt-1 block text-xs text-red-600"></span>
                                     </label>
+                                </div>
+                            </template>
+
+                            {{-- User fields --}}
+                            <template x-if="modal.kind === 'user'">
+                                <div class="space-y-3">
+                                    @foreach (['name' => 'Nazwa', 'email' => 'E-mail'] as $field => $label)
+                                        <label class="block text-sm">
+                                            <span class="font-medium">{{ $label }}</span>
+                                            <input type="text" x-model="modal.form.{{ $field }}"
+                                                   class="mt-1 w-full rounded border px-3 py-2 focus:outline-none"
+                                                   :class="fieldError('{{ $field }}') ? 'border-red-500' : 'border-gray-300 focus:border-indigo-500'">
+                                            <span x-show="fieldError('{{ $field }}')" x-text="fieldError('{{ $field }}')" class="mt-1 block text-xs text-red-600"></span>
+                                        </label>
+                                    @endforeach
+
+                                    <label class="flex items-center gap-2 text-sm">
+                                        <input type="checkbox" x-model="modal.form.is_admin" :disabled="modal.id === user?.id"
+                                               class="rounded border-gray-300 disabled:opacity-50">
+                                        <span>Administrator</span>
+                                    </label>
+                                    <p x-show="modal.id === user?.id" class="text-xs text-gray-500">Nie możesz odebrać uprawnień administratora sobie.</p>
+                                    <span x-show="fieldError('is_admin')" x-text="fieldError('is_admin')" class="block text-xs text-red-600"></span>
                                 </div>
                             </template>
 

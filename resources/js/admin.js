@@ -52,6 +52,8 @@ const emptyProduct = () => ({
 
 const emptyCategory = () => ({ name: '', slug: '', parent_id: '' });
 
+const RESOURCES = { product: '/products', category: '/categories', user: '/users' };
+
 Alpine.data('adminPanel', () => ({
     token: readToken(),
     user: null,
@@ -64,6 +66,7 @@ Alpine.data('adminPanel', () => ({
     productsRequest: 0,
     categoriesRequest: 0,
     allCategoriesRequest: 0,
+    usersRequest: 0,
 
     login: { email: '', password: '', message: null, busy: false },
 
@@ -74,6 +77,9 @@ Alpine.data('adminPanel', () => ({
     filterErrors: {},
     categories: [],
     categoriesMeta: null,
+    users: [],
+    usersMeta: null,
+    usersLoading: false,
     // Every category across all pages, for names, select options and the parent column.
     allCategories: [],
 
@@ -173,7 +179,11 @@ Alpine.data('adminPanel', () => ({
             return;
         }
 
-        await Promise.all([this.loadProducts(1), this.loadCategories(1), this.loadAllCategories()]);
+        const loads = [this.loadProducts(1), this.loadCategories(1), this.loadAllCategories()];
+        if (this.isAdmin) {
+            loads.push(this.loadUsers(1));
+        }
+        await Promise.all(loads);
     },
 
     async logout() {
@@ -188,6 +198,11 @@ Alpine.data('adminPanel', () => ({
     forgetSession(message) {
         this.token = null;
         this.user = null;
+        // The next person to log in may not be an admin: never leave them on the users tab
+        // or keep other people's emails in the page.
+        this.tab = 'products';
+        this.users = [];
+        this.usersMeta = null;
         writeToken(null);
         this.modal.open = false;
         this.showFlash('info', message);
@@ -345,6 +360,49 @@ Alpine.data('adminPanel', () => ({
         }
     },
 
+    async loadUsers(page) {
+        const request = ++this.usersRequest;
+        this.usersLoading = true;
+        try {
+            const data = await this.api('GET', `/users?page=${page}`);
+            if (request !== this.usersRequest) {
+                return;
+            }
+            // Deleting the last row of a page leaves it empty; step back to the new last page.
+            if (data.data.length === 0 && page > 1) {
+                return this.loadUsers(data.meta.last_page);
+            }
+            this.users = data.data;
+            this.usersMeta = data.meta;
+        } catch (error) {
+            if (request !== this.usersRequest) {
+                return;
+            }
+            this.showError(error);
+            // Someone else may have taken our admin role away; re-read it so the tab disappears.
+            if (error.status === 403) {
+                await this.refreshMe();
+                if (!this.isAdmin) {
+                    this.tab = 'products';
+                    this.users = [];
+                    this.usersMeta = null;
+                }
+            }
+        } finally {
+            if (request === this.usersRequest) {
+                this.usersLoading = false;
+            }
+        }
+    },
+
+    isSelf(user) {
+        return user.id === this.user?.id;
+    },
+
+    formatDate(iso) {
+        return new Date(iso).toLocaleDateString('pl-PL');
+    },
+
     // --- Forms ---------------------------------------------------------------
 
     openProductForm(product = null) {
@@ -390,6 +448,23 @@ Alpine.data('adminPanel', () => ({
         }
     },
 
+    openUserForm(user) {
+        this.modal = {
+            open: true,
+            kind: 'user',
+            id: user.id,
+            errors: {},
+            busy: false,
+            form: { name: user.name, email: user.email, is_admin: user.is_admin },
+        };
+    },
+
+    userPayload() {
+        const form = this.modal.form;
+
+        return { name: form.name, email: form.email, is_admin: form.is_admin };
+    },
+
     productPayload() {
         const form = this.modal.form;
         const price = zlotyToGrosze(form.price);
@@ -430,13 +505,13 @@ Alpine.data('adminPanel', () => ({
     },
 
     async saveModal() {
-        const isProduct = this.modal.kind === 'product';
-        const payload = isProduct ? this.productPayload() : this.categoryPayload();
+        const kind = this.modal.kind;
+        const payload = { product: () => this.productPayload(), category: () => this.categoryPayload(), user: () => this.userPayload() }[kind]();
         if (payload === null) {
             return;
         }
 
-        const resource = isProduct ? '/products' : '/categories';
+        const resource = RESOURCES[kind];
         const editing = this.modal.id !== null;
 
         const modal = this.modal;
@@ -457,7 +532,7 @@ Alpine.data('adminPanel', () => ({
 
         modal.open = false;
         this.showFlash('success', editing ? 'Zapisano zmiany.' : 'Dodano.');
-        await this.refreshAfterWrite(isProduct);
+        await this.refreshAfterWrite(kind);
     },
 
     async remove(kind, item) {
@@ -465,28 +540,42 @@ Alpine.data('adminPanel', () => ({
             return;
         }
 
-        const isProduct = kind === 'product';
         try {
-            await this.api('DELETE', `${isProduct ? '/products' : '/categories'}/${item.id}`);
+            await this.api('DELETE', `${RESOURCES[kind]}/${item.id}`);
         } catch (error) {
             this.showError(error);
             return;
         }
 
         this.showFlash('success', 'Usunięto.');
-        await this.refreshAfterWrite(isProduct);
+        await this.refreshAfterWrite(kind);
     },
 
     /**
-     * Category changes show up in product rows too (nested category), so refresh both.
+     * Reloads what a write to `kind` (product, category or user) could have changed.
+     * Category changes show up in product rows too (nested category), so both are refreshed.
      * Loaders report their own errors, so a failed reload never looks like a failed save.
      */
-    async refreshAfterWrite(isProduct) {
+    async refreshAfterWrite(kind) {
+        if (kind === 'user') {
+            await Promise.all([this.loadUsers(this.usersMeta?.current_page ?? 1), this.refreshMe()]);
+            return;
+        }
+
         const reloads = [this.loadProducts(this.productsMeta?.current_page ?? 1)];
-        if (!isProduct) {
+        if (kind === 'category') {
             reloads.push(this.loadCategories(this.categoriesMeta?.current_page ?? 1), this.loadAllCategories());
         }
         await Promise.all(reloads);
+    },
+
+    /** An admin may have just renamed themselves, so the header follows. */
+    async refreshMe() {
+        try {
+            this.user = (await this.api('GET', '/me')).data;
+        } catch (error) {
+            this.showError(error);
+        }
     },
 
     fieldError(field) {
