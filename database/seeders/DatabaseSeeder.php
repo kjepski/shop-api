@@ -17,8 +17,6 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
         User::factory()->create([
             'name' => 'Test User',
             'email' => 'test@example.com',
@@ -28,6 +26,10 @@ class DatabaseSeeder extends Seeder
             'name' => 'Admin',
             'email' => 'admin@example.com',
         ]);
+
+        // Enough regular users for the admin list to paginate; created after the fixed
+        // accounts so a random email can never take one of their addresses.
+        User::factory(20)->create();
 
         Category::factory(3)
             ->has(Category::factory(2)->has(Product::factory(5)), 'children')
