@@ -9,3 +9,6 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('sanctum:prune-expired --hours=24')->daily()->onOneServer();
+
+// Redis tag sets keep references to expired catalog cache entries until pruned.
+Schedule::command('cache:prune-stale-tags')->hourly()->onOneServer();
