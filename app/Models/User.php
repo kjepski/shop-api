@@ -3,9 +3,11 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Support\LikePattern;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -39,5 +41,30 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_admin' => 'boolean',
         ];
+    }
+
+    /**
+     * Case-insensitive fragment of the name or email; % and _ in the term match literally.
+     *
+     * @param  Builder<User>  $query
+     */
+    public function scopeSearch(Builder $query, string $term): void
+    {
+        $pattern = LikePattern::contains($term);
+
+        $query->where(function (Builder $query) use ($pattern): void {
+            $query
+                ->whereRaw($query->qualifyColumn('name')." LIKE ? ESCAPE '!'", [$pattern])
+                ->orWhereRaw($query->qualifyColumn('email')." LIKE ? ESCAPE '!'", [$pattern]);
+        });
+    }
+
+    /**
+     * @param  Builder<User>  $query
+     * @param  'admin'|'user'  $role
+     */
+    public function scopeRole(Builder $query, string $role): void
+    {
+        $query->where('is_admin', $role === 'admin');
     }
 }
