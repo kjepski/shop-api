@@ -29,7 +29,7 @@ class RegisterTest extends TestCase
         $response = $this->postJson('/api/register', $this->validPayload());
 
         $response->assertCreated()
-            ->assertJsonStructure(['data' => ['id', 'name', 'email', 'created_at'], 'token', 'expires_at'])
+            ->assertJsonStructure(['data' => ['id', 'name', 'email', 'is_admin', 'created_at'], 'token', 'expires_at'])
             ->assertJsonPath('data.email', 'jan@example.com')
             ->assertJsonMissingPath('data.password');
 
@@ -47,7 +47,8 @@ class RegisterTest extends TestCase
     public function test_register_cannot_grant_admin_role(): void
     {
         $this->postJson('/api/register', [...$this->validPayload(), 'is_admin' => true])
-            ->assertCreated();
+            ->assertCreated()
+            ->assertJsonPath('data.is_admin', false);
 
         $this->assertFalse(User::where('email', 'jan@example.com')->firstOrFail()->is_admin);
     }
