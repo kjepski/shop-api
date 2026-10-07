@@ -6,14 +6,17 @@
         "build": "vite build",
         "dev": "vite",
         "lint": "eslint . --max-warnings=0",
-        "format": "prettier --write resources/js/admin \"*.config.js\" tsconfig.json",
-        "type-check": "vue-tsc --noEmit",
+        "format": "prettier --write resources/js/admin tests/e2e \"*.config.{js,ts}\" tsconfig.json",
+        "type-check": "vue-tsc --noEmit && tsc --noEmit -p tests/e2e",
         "test": "vitest run",
-        "format:check": "prettier --check resources/js/admin \"*.config.js\" tsconfig.json"
+        "format:check": "prettier --check resources/js/admin tests/e2e \"*.config.{js,ts}\" tsconfig.json",
+        "e2e": "playwright test"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
+        "@playwright/test": "1.63.0",
         "@tailwindcss/vite": "^4.0.0",
+        "@types/node": "^24.19.1",
         "@vitejs/plugin-vue": "^6.0.9",
         "@vue/eslint-config-prettier": "^10.2.0",
         "@vue/test-utils": "^2.5.1",

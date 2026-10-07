@@ -39,7 +39,8 @@ Panel to SPA, które rozmawia wyłącznie z `/api/*`; uprawnienia egzekwuje API,
 - Stack: Vue 3 (`<script setup lang="ts">`, Composition API), TypeScript (`strict: true`, sprawdzanie przez `vue-tsc`), Vue Router, Pinia, Tailwind, budowanie przez Vite.
 - Formatowanie: Prettier odpowiada za styl, ESLint (`eslint-plugin-vue`, `typescript-eslint`) za poprawność; reguły stylistyczne ESLinta wyłączone przez `@vue/eslint-config-prettier`, żeby narzędzia się nie przepychały.
 - Migracja: do przełączenia `/admin` na Vue stary panel w Alpine (`resources/js/admin.js`, `resources/views/admin.blade.php`) tylko utrzymujemy, nie dodajemy do niego funkcji. Nowy panel rośnie obok pod `/admin-next`.
-- Komendy: `./vendor/bin/sail npm run lint` (ESLint, bez ostrzeżeń), `run type-check` (`vue-tsc`), `run test` (Vitest), `run build`, `run format` / `run format:check` (Prettier dla `resources/js/admin` i plików konfiguracyjnych).
+- Komendy: `./vendor/bin/sail npm run lint` (ESLint, bez ostrzeżeń), `run type-check` (`vue-tsc` i `tsc` dla `tests/e2e`), `run test` (Vitest), `run build`, `run format` / `run format:check` (Prettier dla `resources/js/admin`, `tests/e2e` i plików konfiguracyjnych).
+- Testy e2e (Playwright, Chromium) w `tests/e2e/`: `./vendor/bin/sail npm run build && ./vendor/bin/sail --profile e2e rm -sf e2e && ./vendor/bin/sail --profile e2e run --rm playwright npx playwright test`. Testują zbudowane assety, więc build jest częścią komendy; przy działającym `npm run dev` (plik `public/hot`) serwis `e2e` odmówi startu. Serwis `e2e` przy każdym starcie odtwarza własną bazę `testing_e2e` z seederem i własne bazy Redis – baza deweloperska zostaje nietknięta (serwis sprawdza to przed `migrate:fresh`). Po testach serwis działa dalej; zatrzymanie: `./vendor/bin/sail --profile e2e rm -sf e2e`. Przeglądarki są w obrazie `mcr.microsoft.com/playwright`; jego tag w `compose.yaml` musi odpowiadać wersji `@playwright/test`.
 - Laravel serwuje tę samą powłokę (`resources/views/admin-next.blade.php`) dla każdej ścieżki `/admin-next/*`; o tym, co pokazać, decyduje Vue Router (`createWebHistory('/admin-next/')`).
 
 Każdy ekran to osobna trasa z własnym URL – działa po odświeżeniu i z bezpośredniego linku, przycisk „wstecz” działa:
@@ -90,11 +91,12 @@ Zasady:
 - Testuj zachowanie, nie implementację. Test, który nie może się nie powieść, jest bezwartościowy.
 - Testy backendu muszą przechodzić na MySQL (CI, produkcja) i na SQLite: unikaj zachowań zależnych od bazy (np. domyślny znak ESCAPE w LIKE).
 - Frontend: `utils/` i composables testami jednostkowymi (Vitest), komponenty przez Vue Test Utils (zachowanie widoczne dla użytkownika, nie wewnętrzny stan).
+- E2E (Playwright): tylko to, czego jsdom nie pokaże – prawdziwe ciasteczka i CSRF, przeładowania, historia, natywny `<dialog>` – oraz główne ścieżki ekranów. Dane z seedera. Limit logowania to 5 żądań na minutę na e-mail i IP – liczą się też udane logowania, a `/api/login` i `/api/session` dzielą limit – więc testy rozkładają się na konta.
 
 ## Zasady pracy
 - Pracuj na branchu `feat/...`, nigdy bezpośrednio na `main`.
 - Jeden PR to jeden etap lub funkcja. Nie rozszerzaj zakresu poza to, o co poproszono.
-- Przed zakończeniem pracy testy, Pint i PHPStan muszą przechodzić; przy zmianach frontendu także lint, type-check, testy i build.
+- Przed zakończeniem pracy testy, Pint i PHPStan muszą przechodzić; przy zmianach frontendu także lint, type-check, testy i build, a przy zmianach panelu albo uwierzytelniania – testy e2e.
 - Commity: po angielsku, krótkie, w trybie rozkazującym. PR otwieraj przez `gh pr create`, w opisie napisz co i dlaczego zmieniono oraz jak to przetestowano.
 - Nie dotykaj `.env` ani sekretów. Nowe zmienne środowiskowe dopisuj do `.env.example`.
 - Bez pytania nie używaj: `git push --force`, `git reset --hard`, `rm -rf`.

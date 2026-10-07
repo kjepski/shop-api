@@ -42,8 +42,10 @@ export default defineConfig(
         },
     },
     {
-        // Plain JS outside tsconfig.json: no type information available.
-        files: ['*.config.js', 'resources/js/app.js'],
+        // No type information: the project service looks for the nearest tsconfig.json (the root
+        // one), which does not include these files. tests/e2e/tsconfig.json type-checks
+        // playwright.config.ts with tsc instead.
+        files: ['*.config.js', 'playwright.config.ts', 'resources/js/app.js'],
         extends: [tseslint.configs.disableTypeChecked],
         languageOptions: { globals: globals.node },
     },

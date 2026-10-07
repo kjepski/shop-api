@@ -73,3 +73,74 @@ jobs:
       - run: npm run type-check
       - run: npm run test
       - run: npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # The real app (PHP server, MySQL, Redis, built assets) driven by Chromium; the session
+    # cookie and CSRF flow of both panels can only be checked this way.
+    env:
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: testing
+      DB_USERNAME: root
+      DB_PASSWORD: password
+      # Set explicitly, so the job does not depend on what .env.example says.
+      APP_URL: http://127.0.0.1:8000
+      SANCTUM_STATEFUL_DOMAINS: 127.0.0.1:8000
+      SESSION_DOMAIN: ''
+      REDIS_HOST: 127.0.0.1
+      E2E_BASE_URL: http://127.0.0.1:8000
+    services:
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: testing
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -ppassword"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'   # dopasuj do composer.json
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - uses: actions/cache@v4
+        with:
+          path: node_modules/.cache/laravel-vite-plugin/fonts
+          key: vite-fonts-${{ hashFiles('vite.config.js') }}
+      - run: cp .env.example .env && php artisan key:generate
+      - run: npm run build
+      - run: php artisan migrate --seed --force
+      - name: Start the app
+        run: php artisan serve --no-reload --host=127.0.0.1 --port=8000 > storage/logs/serve.log 2>&1 &
+        env:
+          PHP_CLI_SERVER_WORKERS: 4
+      - run: npx playwright install --with-deps chromium
+      - name: Wait for the app
+        run: curl -fs --retry 30 --retry-delay 1 --retry-all-errors http://127.0.0.1:8000/up > /dev/null
+      - run: npm run e2e
+      # Also on success: a test that passed only on retry still leaves its trace.
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: e2e-report
+          path: |
+            playwright-report/
+            test-results/
+            storage/logs/
+          retention-days: 7
