@@ -64,6 +64,76 @@ services:
                 - ping
             retries: 3
             timeout: 5s
+    # End-to-end tests (profile e2e, not started by `sail up`); see "Komendy" in AGENTS.md.
+    # A second app server on its own database and Redis databases, rebuilt on every start,
+    # so tests never touch development data.
+    e2e:
+        image: 'sail-8.5/app'
+        profiles: ['e2e']
+        user: '${WWWUSER:-1000}:${WWWGROUP:-1000}'
+        working_dir: /var/www/html
+        entrypoint: ['sh', '-c']
+        # 1. Refuse to start with a dev server's assets (public/hot) or any database but testing_e2e:
+        #    the next steps wipe it.
+        # 2. --no-reload is required: without it `artisan serve` drops these environment overrides
+        #    and the server would read the developer's .env (database, Redis).
+        command:
+            - >-
+                if [ -f public/hot ]; then echo 'e2e: stop npm run dev (public/hot exists) and run npm run build' >&2; exit 1; fi &&
+                php artisan config:show database.default | grep -qE ' mysql *$' &&
+                php artisan config:show database.connections.mysql.database | grep -qE ' testing_e2e *$' ||
+                { echo 'e2e: not configured for the testing_e2e database, refusing to wipe it' >&2; exit 1; } &&
+                php artisan migrate --force &&
+                php artisan migrate:fresh --seed --force &&
+                php artisan cache:clear &&
+                exec php artisan serve --no-reload --host=0.0.0.0 --port=8001
+        environment:
+            # Real environment variables win over .env, so only these differ from development.
+            # A config cache would ignore them: point it at a path that never exists.
+            APP_CONFIG_CACHE: /tmp/e2e-config.php
+            DB_CONNECTION: mysql
+            DB_HOST: mysql
+            DB_URL: ''
+            DB_DATABASE: testing_e2e
+            APP_URL: 'http://e2e:8001'
+            SANCTUM_STATEFUL_DOMAINS: 'e2e:8001'
+            SESSION_DOMAIN: ''
+            CACHE_STORE: redis
+            REDIS_DB: '2'
+            REDIS_CACHE_DB: '3'
+            # Logs go to `docker compose logs e2e`, not the developer's storage/logs.
+            LOG_CHANNEL: stderr
+            PHP_CLI_SERVER_WORKERS: '4'
+        volumes:
+            - '.:/var/www/html'
+        networks:
+            - sail
+        depends_on:
+            mysql:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        healthcheck:
+            test: ['CMD', 'curl', '-fs', 'http://localhost:8001/up']
+            interval: 2s
+            retries: 30
+            start_period: 60s
+    # Browsers come with the image; its version must match @playwright/test in package.json.
+    playwright:
+        image: 'mcr.microsoft.com/playwright:v1.63.0-noble'
+        profiles: ['e2e']
+        user: '${WWWUSER:-1000}:${WWWGROUP:-1000}'
+        working_dir: /var/www/html
+        environment:
+            E2E_BASE_URL: 'http://e2e:8001'
+            HOME: /tmp
+        volumes:
+            - '.:/var/www/html'
+        networks:
+            - sail
+        depends_on:
+            e2e:
+                condition: service_healthy
 networks:
     sail:
         driver: bridge
