@@ -31,6 +31,20 @@ class LogoutTest extends TestCase
             ->assertUnauthorized();
     }
 
+    public function test_logout_from_the_panel_domain_still_revokes_the_token(): void
+    {
+        // The old /admin panel sends a Bearer token from the same domain as the cookie-based panel.
+        config(['sanctum.stateful' => ['localhost']]);
+        $token = User::factory()->create()->createToken('api');
+
+        $this->withHeader('Referer', 'http://localhost/admin')
+            ->withToken($token->plainTextToken)
+            ->postJson('/api/logout')
+            ->assertNoContent();
+
+        $this->assertDatabaseMissing('personal_access_tokens', ['id' => $token->accessToken->id]);
+    }
+
     public function test_logout_requires_token(): void
     {
         $this->postJson('/api/logout')->assertUnauthorized();

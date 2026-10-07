@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Actions\Auth\LoginUser;
+use App\Actions\Auth\LogoutUser;
 use App\Actions\Auth\RegisterUser;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
@@ -38,12 +39,12 @@ class AuthController extends Controller
         return UserResource::make($user)->additional(['token' => $token, 'expires_at' => $expiresAt]);
     }
 
-    public function logout(Request $request): Response
+    public function logout(Request $request, LogoutUser $logoutUser): Response
     {
         /** @var User $user */
         $user = $request->user();
 
-        $user->currentAccessToken()->delete();
+        $logoutUser->handle($request, $user);
 
         return response()->noContent();
     }

@@ -18,6 +18,16 @@ class ApiError extends Error {
     }
 }
 
+/**
+ * Requests from this domain run in Sanctum SPA mode: POST/PUT/DELETE are CSRF-checked even with
+ * a Bearer token. Laravel sets the XSRF-TOKEN cookie when this page loads; echo it back in a header.
+ */
+function csrfToken() {
+    const cookie = document.cookie.split('; ').find((entry) => entry.startsWith('XSRF-TOKEN='));
+
+    return cookie ? decodeURIComponent(cookie.slice('XSRF-TOKEN='.length)) : null;
+}
+
 /** "49,99" or "49.99" -> 4999 grosze, without going through floats. Returns null for invalid input. */
 function zlotyToGrosze(value) {
     const match = String(value).trim().match(/^(\d+)(?:[.,](\d{1,2}))?$/);
@@ -124,6 +134,15 @@ Alpine.data('adminPanel', () => ({
         }
         if (this.token) {
             headers.Authorization = `Bearer ${this.token}`;
+        }
+        // The cookie expires with the session (after a long idle); fetch a new one before a write,
+        // otherwise the write, and logout with it, would fail with 419.
+        if (method !== 'GET' && !csrfToken()) {
+            await fetch('/sanctum/csrf-cookie', { headers: { Accept: 'application/json' } });
+        }
+        const xsrf = csrfToken();
+        if (xsrf) {
+            headers['X-XSRF-TOKEN'] = xsrf;
         }
 
         const response = await fetch(`/api${path}`, {
