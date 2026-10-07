@@ -34,6 +34,19 @@ class MeTest extends TestCase
             ->assertJsonPath('data.is_admin', true);
     }
 
+    public function test_bearer_token_works_from_the_panel_domain(): void
+    {
+        // The old /admin panel sends its token from the domain that also gets cookie sessions.
+        config(['sanctum.stateful' => ['localhost']]);
+        $user = User::factory()->create();
+
+        $this->withHeader('Referer', 'http://localhost/admin')
+            ->withToken($user->createToken('api')->plainTextToken)
+            ->getJson('/api/me')
+            ->assertOk()
+            ->assertJsonPath('data.id', $user->id);
+    }
+
     public function test_me_requires_token(): void
     {
         $this->getJson('/api/me')->assertUnauthorized();

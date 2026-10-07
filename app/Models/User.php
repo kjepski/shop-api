@@ -13,13 +13,18 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Laravel\Sanctum\PersonalAccessToken;
+use Laravel\Sanctum\TransientToken;
 
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
+    /** @use HasApiTokens<PersonalAccessToken|TransientToken> A cookie session (admin panel) has a TransientToken. */
+    use HasApiTokens;
+
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable, Sortable;
+    use HasFactory, Notifiable, Sortable;
 
     public const DEFAULT_SORT = 'name';
 
