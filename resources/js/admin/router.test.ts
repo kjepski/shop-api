@@ -1,24 +1,45 @@
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils';
-import { createPinia } from 'pinia';
+import { createPinia, setActivePinia } from 'pinia';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryHistory } from 'vue-router';
 
-import App from './App.vue';
-import { APP_TITLE, BASE_PATH, createAdminRouter } from './router';
+import App from '@admin/App.vue';
+import * as auth from '@admin/api/auth';
+import { ApiError, request, setUnauthorizedHandler } from '@admin/api/client';
+import { APP_TITLE, BASE_PATH, createAdminRouter } from '@admin/router';
+import { useFlashStore } from '@admin/stores/flash';
+import type { User } from '@admin/types/user';
+
+vi.mock('@admin/api/auth');
 
 enableAutoUnmount(afterEach);
+
+const admin: User = { id: 1, name: 'Admin', email: 'admin@example.com', is_admin: true, created_at: null };
 
 beforeEach(() => {
     sessionStorage.clear();
     document.body.innerHTML = '';
+    vi.resetAllMocks();
+    vi.mocked(auth.fetchMe).mockResolvedValue(admin);
+    // The session guard needs a store before any component is mounted.
+    setActivePinia(createPinia());
 });
+
+afterEach(() => {
+    setUnauthorizedHandler(null);
+    vi.unstubAllGlobals();
+});
+
+function loggedOut(): void {
+    vi.mocked(auth.fetchMe).mockRejectedValue(new ApiError(401, 'Unauthenticated.'));
+}
 
 async function mountApp() {
     const router = createAdminRouter({ history: createMemoryHistory(BASE_PATH) });
     await router.push('/');
     await router.isReady();
 
-    const wrapper = mount(App, { global: { plugins: [createPinia(), router] }, attachTo: document.body });
+    const wrapper = mount(App, { global: { plugins: [router] }, attachTo: document.body });
     await flushPromises();
 
     return { router, wrapper };
@@ -59,7 +80,7 @@ describe('admin router', () => {
     it('leaves focus alone on the first screen', async () => {
         // Like main.ts: the router starts its first navigation while the app mounts.
         const router = createAdminRouter({ history: createMemoryHistory(BASE_PATH) });
-        mount(App, { global: { plugins: [createPinia(), router] }, attachTo: document.body });
+        mount(App, { global: { plugins: [router] }, attachTo: document.body });
         await router.isReady();
         await flushPromises();
 
@@ -87,6 +108,78 @@ describe('admin router', () => {
 
         expect(reload).toHaveBeenCalledOnce();
         expect(reload).toHaveBeenCalledWith('/admin-next/broken');
+    });
+
+    it('sends a guest to the login page and remembers where they were going', async () => {
+        loggedOut();
+        const router = createAdminRouter({ history: createMemoryHistory(BASE_PATH) });
+
+        await router.push('/products/12?page=2');
+
+        expect(router.currentRoute.value.name).toBe('login');
+        expect(router.currentRoute.value.query.redirect).toBe('/products/12?page=2');
+    });
+
+    it('sends a guest from the start page to a plain login page', async () => {
+        loggedOut();
+        const router = createAdminRouter({ history: createMemoryHistory(BASE_PATH) });
+
+        await router.push('/');
+
+        expect(router.currentRoute.value.fullPath).toBe('/login');
+    });
+
+    it('lets a guest see the login page', async () => {
+        loggedOut();
+        const router = createAdminRouter({ history: createMemoryHistory(BASE_PATH) });
+
+        await router.push('/login');
+
+        expect(router.currentRoute.value.name).toBe('login');
+    });
+
+    it('sends a logged-in user away from the login page', async () => {
+        const router = createAdminRouter({ history: createMemoryHistory(BASE_PATH) });
+
+        await router.push('/login');
+        expect(router.currentRoute.value.name).toBe('home');
+
+        await router.push('/login?redirect=/missing');
+        expect(router.currentRoute.value.fullPath).toBe('/missing');
+
+        await router.push('/login?redirect=https://evil.example.com');
+        expect(router.currentRoute.value.name).toBe('home');
+    });
+
+    it('goes to the login page when the session expires mid-work', async () => {
+        const { router } = await mountApp();
+        await router.push('/missing?a=1');
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(() => Promise.resolve(new Response('{}', { status: 401 }))),
+        );
+
+        await request('GET', '/products').catch(() => undefined);
+        await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('login'));
+
+        expect(router.currentRoute.value.query.redirect).toBe('/missing?a=1');
+        expect(useFlashStore().message?.text).toBe('Sesja wygasła, zaloguj się ponownie.');
+    });
+
+    it('ignores 401 before anyone has logged in', async () => {
+        loggedOut();
+        const router = createAdminRouter({ history: createMemoryHistory(BASE_PATH) });
+        await router.push('/login');
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(() => Promise.resolve(new Response('{}', { status: 401 }))),
+        );
+
+        await request('GET', '/me').catch(() => undefined);
+        await flushPromises();
+
+        expect(router.currentRoute.value.fullPath).toBe('/login');
+        expect(useFlashStore().message).toBeNull();
     });
 
     it('does not reload for other navigation errors', async () => {

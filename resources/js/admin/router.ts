@@ -1,10 +1,23 @@
 import { nextTick } from 'vue';
-import { createRouter, createWebHistory, type Router, type RouterHistory } from 'vue-router';
+import {
+    createRouter,
+    createWebHistory,
+    type RouteLocationNormalized,
+    type RouteLocationRaw,
+    type Router,
+    type RouterHistory,
+} from 'vue-router';
+
+import { setUnauthorizedHandler } from '@admin/api/client';
+import { useSessionStore } from '@admin/stores/session';
+import { afterLoginTarget } from '@admin/utils/redirect';
 
 declare module 'vue-router' {
     interface RouteMeta {
         /** Page name for the browser tab and screen readers; every route must set it. */
         title: string;
+        /** Reachable without logging in; every other route requires a session. */
+        public?: boolean;
     }
 }
 
@@ -53,6 +66,12 @@ export function createAdminRouter({
                 meta: { title: 'Start' },
             },
             {
+                path: '/login',
+                name: 'login',
+                component: () => import('./features/auth/LoginPage.vue'),
+                meta: { title: 'Logowanie', public: true },
+            },
+            {
                 path: '/:pathMatch(.*)*',
                 name: 'not-found',
                 component: () => import('./features/errors/NotFoundPage.vue'),
@@ -61,6 +80,22 @@ export function createAdminRouter({
         ],
         // Back/forward restores the list position; a new screen starts at the top.
         scrollBehavior: (_to, _from, savedPosition) => savedPosition ?? { top: 0 },
+    });
+
+    // Requires an active Pinia: the app installs Pinia before the router starts navigating.
+    router.beforeEach(async (to) => {
+        const session = useSessionStore();
+        await session.ensureLoaded();
+
+        const loggedIn = session.status === 'authenticated';
+        if (!to.meta.public && !loggedIn) {
+            return loginFor(to);
+        }
+        if (to.name === 'login' && loggedIn) {
+            return afterLoginTarget(to.query.redirect);
+        }
+
+        return true;
     });
 
     router.afterEach(async (to, from, failure) => {
@@ -89,5 +124,25 @@ export function createAdminRouter({
         reload(router.resolve(to).href);
     });
 
+    redirectToLoginOnExpiredSession(router);
+
     return router;
+}
+
+/** The login page, coming back to `to` afterwards. */
+function loginFor(to: RouteLocationNormalized): RouteLocationRaw {
+    return to.name === 'home' ? { name: 'login' } : { name: 'login', query: { redirect: to.fullPath } };
+}
+
+/**
+ * A 401 in the middle of the work (the session expired or was ended elsewhere) leads to the login
+ * page, which then returns to the screen the user was on. One handler for the whole app: the most
+ * recently created router owns it.
+ */
+function redirectToLoginOnExpiredSession(router: Router): void {
+    setUnauthorizedHandler(() => {
+        if (useSessionStore().expire()) {
+            void router.replace(loginFor(router.currentRoute.value));
+        }
+    });
 }
